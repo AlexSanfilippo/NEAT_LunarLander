@@ -32,6 +32,10 @@
 //REMOVE LATER
 #include <typeinfo>
 
+//MPI
+#include <mpi.h>
+
+
 //for python
 //#include "fitness.h"
 
@@ -46,18 +50,18 @@ void reproduce(std::vector <Species> *pop_ptr, const int MAX_POP, NOV *nov);
 int Gene::innov_count{ 0 };
 
 using namespace std;
-int main(){
+int main(int argc, char **argv){
 		
 
 	/*==========  Version 1.1 of Main Loop  =========*/
 	//created 25-07-2022
-	//updated 04-08-2022
+	//updated 10-08-2022
 		
 
 	/*SIMULATION HYPERPARAMETERS*/
-	const int POP_SIZE  = 18; //number of genomes in the whole population
-	const int NUM_MUT = 1; //number of mutation
-	const int NUM_GEN = 5; //number of generations	
+	const int POP_SIZE  = 8; //number of genomes in the whole population
+	const int NUM_MUT = 3; //number of mutation
+	const int NUM_GEN = 3; //number of generations	
 	int gen_count = 0;
 	NOV nov(4,1); //create Nodal Order Vector object
 	
@@ -78,6 +82,17 @@ int main(){
 
 	ofstream fit_fp;
 	fit_fp.open("pop_avg_fitness.csv");
+
+	/*MPI EXPERIMENT*/
+
+	int nprocs, myid;
+
+	MPI_Init(&argc, &argv);
+	MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+	std::cout << "inside "<<myid <<"/" << nprocs << " MPI processes\n"; 
+	//MPI_Finalize();	
+	if(myid == 0){
 	//Mutate all the genomes in the species & calc fitness
 	for(int g = 0; g < NUM_GEN; g++){ //each gen
 		auto start_gen_a = std::chrono::high_resolution_clock::now();
