@@ -222,7 +222,7 @@ double compat(Genome A, Genome B){
 	std::cout << "E = " << E << std::endl;
 	std::cout << "D = " << D << std::endl;
 	*/
-	double delta = 1*E/N + 1*D/N + 1*W;
+	double delta = 5*E/N + 2.5*D/N + 0.5*W;
 	return delta;
 };
 

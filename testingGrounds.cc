@@ -55,9 +55,9 @@ int main(){
 		
 
 	/*SIMULATION HYPERPARAMETERS*/
-	const int POP_SIZE  = 16; //number of genomes in the whole population
+	const int POP_SIZE  = 18; //number of genomes in the whole population
 	const int NUM_MUT = 1; //number of mutation
-	const int NUM_GEN = 20; //number of generations	
+	const int NUM_GEN = 5; //number of generations	
 	int gen_count = 0;
 	NOV nov(4,1); //create Nodal Order Vector object
 	
@@ -71,10 +71,16 @@ int main(){
 
 	
 	ofstream timefp;
-	timefp.open("timings.csv"); //open file for timings
+	timefp.open("eval_timings.csv"); //open file for timings
 
+	ofstream neat_time_fp;
+        neat_time_fp.open("neat_timings.csv");
+
+	ofstream fit_fp;
+	fit_fp.open("pop_avg_fitness.csv");
 	//Mutate all the genomes in the species & calc fitness
 	for(int g = 0; g < NUM_GEN; g++){ //each gen
+		auto start_gen_a = std::chrono::high_resolution_clock::now();
 		for(long unsigned int h = 0; h < pop.size(); h++){ //each species
 			for(unsigned long int i = 0; i < pop[h].genome_vec.size(); i++){ //each genome
 				for(int j = 0; j < NUM_MUT; j++){ //each mutation
@@ -87,6 +93,7 @@ int main(){
 				//pop[h].genome_vec[i].calcAdjusted(pop[h].genome_vec.size()); //?
 			}
 		}
+		//std::cout <<"[MainLoop] called mutate() on all genomes in pop\n";
 		/*Write all Genomes to a File*/
 		char filename[] = "genome_data.csv";
 		ofstream fp;
@@ -104,12 +111,15 @@ int main(){
 		fp.close();
 			
 		/*Call python script to evaluated all genome's fitnesses*/
+		auto stop_gen_a = std::chrono::high_resolution_clock::now(); //stop timing before eval
 		auto start = std::chrono::high_resolution_clock::now();
 		system("./calls_evaluate");
+		//std::cout <<"[MainLoop] called evaluate.py\n";
 		auto stop = std::chrono::high_resolution_clock::now();
-		auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
-		timefp << "GEN " << g << ": " << duration.count() << "\n";
-		std::cout << "GEN " << g << ": " << duration.count() << ",\n";	
+		auto start_gen_b = std::chrono::high_resolution_clock::now(); //start timing after eval
+		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+		timefp << "GEN " << g << ": " << double(duration.count())/1000000 << "\n";
+		//std::cout << "GEN " << g << ": " << duration.count()/1000000 << ",\n";	
 
 		/*Read the fitnesses from the file and assign to genomes' members*/
 		fstream fpin; //create file pointer
@@ -140,8 +150,10 @@ int main(){
 		cout << "====== Generation " << gen_count << "/" << NUM_GEN <<" ======\n";
 		cout << "Number of Species:  " << pop.size() << "\n";
         	cout << "Number of Genomes: " << calcTotalPop(&pop) << std::endl;
-		cout << "Population Avg. Fitness (pre-cull): " << calcAverageFitness(&pop) << endl;
-        	cout << "Species Stats:\n";
+		double pop_avg_fitness = calcAverageFitness(&pop);
+		cout << "Population Avg. Fitness (pre-cull): " << pop_avg_fitness << endl;	
+		fit_fp << pop_avg_fitness << endl;	
+		cout << "Species Stats:\n";
 		for(int j = 0; j < (int)pop.size(); j++){
         	        cout << "       Species " << j << ": size: " << pop[j].size() << ", avg Fit: "\
 				<< pop[j].getFitness() << "\n";
@@ -151,10 +163,18 @@ int main(){
 
 		/*reproduce (create new population from fittest of old pop)*/
 		reproduce(&pop, POP_SIZE, &nov);
+		//std::cout <<"[MainLoop] called reproduce\n";
 		gen_count++;
+		auto stop_gen_b = std::chrono::high_resolution_clock::now(); //stop timing before eval
+		auto neat_duration_a = std::chrono::duration_cast<std::chrono::microseconds>(stop_gen_a - start_gen_a); 
+		auto neat_duration_b = std::chrono::duration_cast<std::chrono::microseconds>(stop_gen_b - start_gen_b);
+                neat_time_fp << "GEN " << g << ": " << double((neat_duration_a.count() + neat_duration_b.count())) / 1000000 << "\n";
+		//std::cout << "nt GEN " << g << ": " << double(neat_duration_b.count()) / 1000 << "\n";
+	
 	}
-
+	neat_time_fp.close(); //close fp for writing time of NEAT execution/Generation
 	timefp.close(); //close file pointer for recording evaluation times/generation
+	fit_fp.close();
 	/*END OF MAIN LOOP: printing results to confirm code working*/
 	
 	/*printing results...*/
@@ -408,7 +428,7 @@ void matchMaker(Species s, int* parents, double avg_fitness){
  * */
 void reproduce(std::vector <Species> *pop_ptr, const int MAX_POP, NOV *nov){
 	
-	//std::cout << "reproduce()...\n";	
+	//std::cout << "in reproduce()...\n";	
 
 	Gene ic_gene2 = Gene(0,0,0,true);
 	int old_innov_count = ic_gene2.getInnovCount();
@@ -422,7 +442,7 @@ void reproduce(std::vector <Species> *pop_ptr, const int MAX_POP, NOV *nov){
 
 
 	/*HYPER PARAMETERS*/ //add these to a struct in a world_setting.h file later on
-	int dist_threshold = 50; //not sure what to set this to
+	int dist_threshold = 25; //not sure what to set this to
 	
 
 
@@ -431,9 +451,9 @@ void reproduce(std::vector <Species> *pop_ptr, const int MAX_POP, NOV *nov){
 	calcOffspring(&pop, MAX_POP); //works for all species already, no loop req.
 	//for each Species-choose a representative genome
 	for(int i = 0; i < pop_size; i++){
-		if(pop[i].size() > 4){	
+		if(pop[i].size() > 2){ //why was this ever 4? changed to 2	
 			pop[i].cull(); //ensures choose a fit rep
-			pop[i].chooseRep();
+			pop[i].chooseRep(); //choose a random new repr genome
 		}	
 	}
 	
@@ -464,7 +484,9 @@ void reproduce(std::vector <Species> *pop_ptr, const int MAX_POP, NOV *nov){
 		for(int j = 0; j < pop[i].getOffspring(); j++){
 			//matchMaker() to get two parents indices
 			int parents[2] = {0,0};
+			//std::cout << "calling matchMAker..."<<std::endl;
 			matchMaker(pop[i], parents, pop_avg_fitness);
+			//std::cout << "called matchMaker." << std::endl;
 			//crossOver
 			Genome child = Genome(true); //create empty child
 			child_count++;
@@ -473,10 +495,24 @@ void reproduce(std::vector <Species> *pop_ptr, const int MAX_POP, NOV *nov){
 				" and parents at indices " << parents[0] << ", " << parents[1]\
 				<< std::endl;
 			*/
-			if(!(parents[0] == -1 || parents[1] == -1)){	
-                		crossover(pop[i].genome_vec[parents[0]], pop[i].genome_vec[parents[1]], &child); 
-				
+			
 
+			if(!(parents[0] == -1 || parents[1] == -1)){	
+                		//std::cout << "calling crossever..."<<std::endl;
+				if(parents[0] != parents[1]){
+					//Genome child = Genome(true); //create empty child
+					crossover(pop[i].genome_vec[parents[0]], pop[i].genome_vec[parents[1]], &child); 
+				}
+				//asexual reproduction v2				
+				else if(parents[0] == parents[1]){ 
+					/*std::cout << "attempting asexual reproduction in species " << i << "parents[0] = "<<\
+						parents[0] << std::endl; */
+					//just add the same identical gene to the species
+					child = pop[i].genome_vec[parents[0]]; //child is CLONE of parent
+					//std::cout << "cloned the child\n";
+					//new_pop[i].genome_vec.push_back(child_ace); //place child in parent species
+					//std::cout <<"\ntriggered asexual reproduction in species " << i << "\n";
+				}
 
 				//std::cout << "[reproduce()] after crossover()\n";
 				int pop_size_dyn = new_pop.size(); //updates as new species are created;
@@ -493,11 +529,14 @@ void reproduce(std::vector <Species> *pop_ptr, const int MAX_POP, NOV *nov){
 						k = pop_size_dyn; //stop adding the child to species
 					}
 				}
+				
 				if(child_placed == false){ //if no compatible species found for this child
+					//std::cout << "adding new species..."<<std::endl;
 					//then make a new species with this child as its rep
 					Species new_spec = Species(child, old_innov_count); //create new species with child genome as first genome
 					//above constructor handles setting the representative.
 					new_pop.push_back(new_spec);
+					//std::cout << "added new species."<<std::endl;
 					//std::cout << "new species created for child\n";
 					//std::cout << "Placed child " << child_count << " in NEW species " << std::endl;
 				}

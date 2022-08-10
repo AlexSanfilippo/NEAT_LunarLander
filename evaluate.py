@@ -21,12 +21,12 @@ import csv
 
 
 ####CONTROLS AND HYPERPARAMETERS
-#seed = 1996
+seed = 1996
 
 
 
 
-#np.random.seed(seed)
+np.random.seed(seed)
 
 #1 create input nodes (the same for all genomes)
 input1 = tf.keras.Input(shape=(1,), name = 'INPUT_1')
@@ -233,7 +233,7 @@ with open('genome_data.csv','r') as read_obj:
                 #env = gym.make('CartPole-v1', render_mode='human',
                 #               new_step_api=True)                 
                 env = gym.make('CartPole-v1') #run without rendering
-                #env.seed(seed)
+                env.seed(seed)
                 #redefine observation space
 
 
