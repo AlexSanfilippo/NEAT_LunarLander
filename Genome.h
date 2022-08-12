@@ -14,6 +14,7 @@
 #include <vector>
 #include <iostream>
 #include <fstream> //for writing to files
+#include <mpi.h>
 #include "gene.h"
 #include "NOV.h"
 
@@ -25,7 +26,9 @@ class Genome{
 		std::vector <Gene> gene_vec; //holds the genes in a std vector
 		double fitness = 1; //how fit this genome is on the test
 		double adjusted = 1; //adjusted fitness score	
-
+		
+		std::vector <double> node_info_1d; //node input count, input node numbers, and weights
+		std::vector <int> row_lens_1d; //the row length for each node for this Genome
 
 		/*Constructors, Destructors, etc...*/
 		
@@ -193,10 +196,6 @@ class Genome{
  		*
  		* **/
 		void  writeToFile(ofstream *fp, int genome_index){
-			
-			//*fp << "START" << "\n";
-			
-
 			//write the genome's nodal info to the .csv file	
 			for(int i = 1; i < int( node_inputs.size() ); i++){ //for each node
 				if(node_inputs[i][0] > 0){//if node has at least 1 input
@@ -213,9 +212,81 @@ class Genome{
 				}
 			}	
 			*fp << "END," << "\n";
+		}
 
+		
+		/*
+ 		* @brief writes to file if rank==0, else sends to rank n>0
+ 		*
+ 		* **/
+		void  writeToFileSend(ofstream *fp, int genome_index, int rank){
+			
+			//*fp << "START" << "\n";
+			
+			if(rank==0){
+				//write the genome's nodal info to the .csv file	
+				for(int i = 1; i < int( node_inputs.size() ); i++){ //for each node
+					if(node_inputs[i][0] > 0){//if node has at least 1 input
+						*fp << i << ","; //write node number
+						//print the input-nodes' numbers
+						for(int j = 0; j < int(node_weights[i].size()+1); j++){ //for each nodes inputs
+							*fp << node_inputs[i][j] << ","; //write input-node number 
+						}
+						//print the weights	
+						for(int j = 0; j < int(node_weights[i].size()); j++){ //for each nodes inputs
+							*fp << node_weights[i][j] << ","; //write weight
+						}
+						*fp << "\n";
+					}
+				}	
+				*fp << "END," << "\n";
+			}
+			else{
+				//MPI_Send(node_inputs.size(), 1, MPI_INT, rank/*rank*/, 99, MPI_COMM_WORLD); 
+				int node_info_size = int( node_info_1d.size() );
+				int row_lens_size = int( row_lens_1d.size() );
+				std::cout << "attempting to send genome info\n";
+				MPI_Send(&node_info_size, 1, MPI_INT, rank/*rank*/, 99, MPI_COMM_WORLD); 
+				MPI_Send(&row_lens_size, 1, MPI_INT, rank/*rank*/, 99, MPI_COMM_WORLD);
+				MPI_Send(&node_info_1d[0], int(node_info_1d.size()), MPI_DOUBLE, rank/*rank*/, 99, MPI_COMM_WORLD); 
+				MPI_Send(&row_lens_1d[0], int(row_lens_1d.size()), MPI_INT, rank/*rank*/, 99, MPI_COMM_WORLD); //send node inputs
+				/* Send the input and weights to the rank.  First send the number of ints/double we are sending,
+ 				* then send the values*/	
+			}
 	
 		}
+
+
+		/**
+ 		* @write to file for non-root processes
+ 		* MOVE TO TESTINGGROUNDS AND REPLACE OTHER FXN OF SAME NAME*/
+		/*
+		void  writeToFileRecv(ofstream *fp){
+			//receive weights and inputs vectors from root
+			int node_info_size, row_lens_size; //size of inputs vector 1d
+			std::vector <double> node_info_1d;
+			std::vector <int> row_lens_1d;
+			
+			MPI_Recv(&node_info_size, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			MPI_Recv(&row_lens_size, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			MPI_Recv(node_info_1d.data(), node_info_size, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			MPI_Recv(row_lens_1d.data(), row_lens_size, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		
+			//WRITE TO FILE FROM 1D:	
+			int count = 0; //index for node_info_1d
+			for(int i = 0; i < row_lens_size; i++){ //for each row in nodeinfo
+				int row_len = row_lens_1d[i]; //get number of items in row "i"
+				for(int j = 0; j < row_len; j++){ //for each item in this row
+					*fp << node_info_1d[count] << ","; //write to file
+					count += 1;
+				}
+				*fp << "\n"; //at end of row print new line 
+			}
+			*fp << "END," << "\n"; //at end of genome print "END"
+
+		}
+		*/
+
 		/**
  		* @brief makes a vector of all the Genome's node's and their weights
  		* */
@@ -239,6 +310,8 @@ class Genome{
 					node_weights[output].push_back(w); //add weight to the weight list
 				}
 			}
+
+			convertNodeInfo1d(); //make the 1d input and weight vectors
 			//std::cout << "finished populating the vectors\n";
 			
 			/*
@@ -258,14 +331,28 @@ class Genome{
 			*/
 
 		}
+		
 		/**
- 		* @brief writes the Genome to a file for python to use
+ 		* @brief takes this genomes node_inputs and node_weights and makes it 1d
+ 		*
  		* */
-		/*
-		void writeToFile(fp){
-			
+		void convertNodeInfo1d(){
+			//int count = 0; //counts value weve added to node_inputs_1
+			for(int i = 0; i < int(node_inputs.size()); i++){ //for each node(row)
+				for(int j = 0; j < int(node_inputs[i].size()); j++){ //for each elm (input)
+					node_info_1d.push_back( node_inputs[i][j] );
+					if(j==0){ //if at first elm (the inputs count)
+						//need row lengths to put humpty back together again
+						//when we write to file
+						row_lens_1d.push_back(  (node_inputs[i][j]*2) + 1 );
+					}
+					//count += 1;
+				}
+				for(int j = 0; j < int(node_weights[i].size()); j++){
+					node_info_1d.push_back( node_weights[i][j]) ;
+				}
+			}
 		}
-		*/
 
 		/***
  		* @brief call to mutate the genes
