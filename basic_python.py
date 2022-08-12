@@ -31,10 +31,19 @@ from csv import reader #for reading csv
 import gym
 import time
 import csv
+import sys
 
 print("imported all without error")
 myarr = np.array([1,2,3,4,5])
 print("created np array ", myarr)
+
+sys.stdout.write('HELLO STDOUT!!!!! :)\n')
+sys.stdout.flush()
+sys.exit(0)
+
+def main():
+	mylist = [1,2,3,4,5,5,5,5]
+	return mylist
 
 #Step 3: call this python script from a c++ file
 #step 4: try calling evaluate.py from testingGrounds.cc

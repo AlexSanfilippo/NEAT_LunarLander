@@ -58,9 +58,9 @@ int main(int argc, char **argv){
 		
 
 	/*SIMULATION HYPERPARAMETERS*/
-	const int POP_SIZE  = 12; //number of genomes in the whole population
-	const int NUM_MUT = 1; //number of mutation
-	const int NUM_GEN = 1; //number of generations	
+	const int POP_SIZE  = 20; //number of genomes in the whole population
+	const int NUM_MUT = 3; //number of mutation
+	const int NUM_GEN = 5; //number of generations	
 	int gen_count = 0;
 	NOV nov(4,1); //create Nodal Order Vector object
 	
@@ -115,9 +115,11 @@ int main(int argc, char **argv){
 		int num_big_procs = ngenomes % nprocs;
 		if(num_big_procs > 0){ //proc 0 is always first to get big
 			genomes_per_proc = big;
+			genomes_per_proc_vec.push_back(big);
 		}
 		else{
 			genomes_per_proc = small;
+			genomes_per_proc_vec.push_back(small);
 		}
 		//cout << "num_big_procs=" << num_big_procs << ", small="<<small<<", big="<< big<< endl;
 		for(int i = 1; i < nprocs; i++){//for each proc
@@ -195,7 +197,9 @@ int main(int argc, char **argv){
 
 
 		/*Write all Genomes to a File*/
-		char filename[] = "genome_data.csv";
+		//char filename[] = "genome_data.csv";
+		string filename = "genome_data";
+		filename += to_string(myid) + ".csv";
 		ofstream fp;
 		fp.open(filename);
 		int genome_count = 0; //is the TP or what?
@@ -243,7 +247,15 @@ int main(int argc, char **argv){
 		auto stop_gen_a = std::chrono::high_resolution_clock::now(); //stop timing before eval
 		auto start = std::chrono::high_resolution_clock::now();
 		
-		system("./calls_evaluate");
+		string e_caller = "python evaluate.py " + to_string(myid);
+		const char *callme = e_caller.c_str();
+		system(callme);
+		MPI_Barrier(MPI_COMM_WORLD);
+		//const char* fitness_combiner = "cat local_fitness* > fitness.csv"
+		//system(fitness_combiner);
+		//system("./calls_evaluate");
+		//cout << "in rank #" << myid << endl;
+		//system("cat genome_data.csv");
 		//std::cout <<"[MainLoop] called evaluate.py\n";
 			
 		auto stop = std::chrono::high_resolution_clock::now();
@@ -252,6 +264,37 @@ int main(int argc, char **argv){
 		timefp << "GEN " << g << ": " << double(duration.count())/1000000 << "\n";
 		//std::cout << "GEN " << g << ": " << duration.count()/1000000 << ",\n";	
 		
+
+		/*[Parallel] Combine the fitness files into 1 big fitness file*/
+		if(myid==0){
+
+			//open another fp for writing out to file
+			
+			ofstream fpfitness;
+			fpfitness.open("fitness.csv");
+
+
+			for(int i = 0; i < nprocs; i++){
+				string fitfile = "fitness" + to_string(myid) + ".csv";
+					
+								
+				fstream fpin; //create file pointer
+				fpin.open(fitfile, ios::in); //open the file
+				string line, score;
+				getline(fpin, line);//reads all values and stores in "line"
+				stringstream s(line);
+				for(int j = 0; j <genomes_per_proc_vec[rank]; j++){
+					getline(s,score,',');
+					fpfitness << stoi(score) <<",";
+				}
+				fpin.close();
+				//read in the file data(like below)
+				//write the file data to fitness.csv
+			}
+			fpfitness.close();
+		}
+
+
 		if(myid == 0){
 
 			/*Read the fitnesses from the file and assign to genomes' members*/

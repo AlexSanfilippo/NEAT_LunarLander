@@ -16,7 +16,11 @@ import gym
 import time
 import csv
 
+import sys
 
+
+rank = sys.argv[1]
+print("in evaluate.py, rank detected = ", rank);
 #set seed to get same results on same NNs and same inputs
 
 
@@ -68,7 +72,8 @@ layer_name_list = [] #stores list of names of all named layers-used for weight s
 
 #node_row = []
 from csv import reader
-with open('genome_data.csv','r') as read_obj:
+filename = 'genome_data' + rank + '.csv'
+with open(filename,'r') as read_obj:
     csv_reader = reader(read_obj)
 
     hit_END = False #if we finished making the NN
@@ -281,10 +286,11 @@ with open('genome_data.csv','r') as read_obj:
         if(hit_END == False):
             node_list.append(node_row)
             
-print("fit=", fit)
+print("fit in rank ",rank ,"=", fit)
 #write fit to file
-file = open('fitness.csv', 'w')
-
+fitfile = "fitness" + rank + ".csv";
+#file = open('fitness.csv', 'w')
+file = open(fitfile, 'w')
 writer = csv.writer(file)
 
 writer.writerow(fit)
