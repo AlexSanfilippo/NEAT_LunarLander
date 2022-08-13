@@ -58,9 +58,9 @@ int main(int argc, char **argv){
 		
 
 	/*SIMULATION HYPERPARAMETERS*/
-	const int POP_SIZE  = 20; //number of genomes in the whole population
-	const int NUM_MUT = 3; //number of mutation
-	const int NUM_GEN = 5; //number of generations	
+	const int POP_SIZE  = 50; //number of genomes in the whole population
+	const int NUM_MUT = 1; //number of mutation
+	const int NUM_GEN = 25; //number of generations	
 	int gen_count = 0;
 	NOV nov(4,1); //create Nodal Order Vector object
 	
@@ -106,8 +106,9 @@ int main(int argc, char **argv){
 	std::vector <int> start_vec = {0}; //stores starting genome index for each proc
 	std::vector <int> genomes_per_proc_vec; //stores ngenomes of each proc
 	//on proc 0
+	int ngenomes;
 	if(myid == 0){
-		int ngenomes = calcTotalPop(&pop);
+		ngenomes = calcTotalPop(&pop);
 		//std::cout << "ngenomes=" << ngenomes << endl;
 		//std::vector <int> genomes_per_proc; //index=proc id, stores starting index of genomes
 		int small = floor(double(ngenomes)/double(nprocs));
@@ -124,10 +125,15 @@ int main(int argc, char **argv){
 		//cout << "num_big_procs=" << num_big_procs << ", small="<<small<<", big="<< big<< endl;
 		for(int i = 1; i < nprocs; i++){//for each proc
 			int temp_genomes_per_proc;
-			if(i <= num_big_procs){
+			if(i < num_big_procs){
 				start += big;
 				genomes_per_proc_vec.push_back(big);
 				temp_genomes_per_proc = big;
+			}
+			else if( i == num_big_procs){
+				start+=big;
+				genomes_per_proc_vec.push_back(small);
+				temp_genomes_per_proc = small;
 			}
 			else{
 				start += small;
@@ -178,6 +184,119 @@ int main(int argc, char **argv){
 	
 	//Mutate all the genomes in the species & calc fitness
 	for(int g = 0; g < NUM_GEN; g++){ //each gen
+
+		/*[Parallel]*/
+		/* //OLD
+		//if the number of genomes changes, change the last procs genomes_per_proc
+		int update_last_proc = 0;
+		if(myid==0){
+			int real_pop = calcTotalPop(&pop);
+			if(ngenomes != real_pop){
+				update_last_proc = real_pop - ngenomes;
+				genomes_per_proc_vec[nprocs-1] += update_last_proc;
+				//send signal to proc nprocs-1 to update num of genomes			
+				MPI_Send(&update_last_proc, 1, MPI_INT, nprocs-1, 99, MPI_COMM_WORLD);
+			}
+		}
+		if(myid == nprocs-1 && update_last_proc != 0){				
+			MPI_Recv(&update_last_proc, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			genomes_per_proc += update_last_proc; //add genome to this proc
+			//TP
+			std::cout << "updated proc " <<nprocs-1 <<"'s genomes_per_proc to be " << genomes_per_proc << std::endl;
+		}
+		*/
+		/*[Parallel] Repeat of the initial genomes/proc balancing*/
+		
+		
+		//MPI_Barrier(MPI_COMM_WORLD);
+		bool did_rebalance = false;
+
+				
+		if(myid == 0){
+			int cur_ngenomes = calcTotalPop(&pop);
+			if(ngenomes != cur_ngenomes){ //only rebalance if pop size has changed!
+				did_rebalance = true;
+			}
+			
+			std::cout << "~~~~~~1/2Rebalancing because old pop = " << ngenomes <<\
+			" and current pop = " <<cur_ngenomes << "~~~~~~\n";
+		}
+		//BCAST MUST BE CALLED ON ALL PROCS AND REQS NO RECV!!!!!!!!!!!!!
+		//std::cout <<"Bcasting "did_balance"\n"; 
+		MPI_Bcast(&did_rebalance, 1, MPI::BOOL, 0, MPI_COMM_WORLD);
+		//receive signal to rebalance on all ranks
+		//MPI_Recv(&did_rebalance, 1, MPI::BOOL, 0, 9090, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		MPI_Barrier(MPI_COMM_WORLD); //tp
+		//std::cout << "reveived rebalance on procs\n";
+		if(myid == 0 && did_rebalance == true){
+			//TP
+			int ngenomes_old = ngenomes;
+			std::cout << "~~~~~~2/2Rebalancing because old pop = " << ngenomes_old <<\
+			" and current pop = " <<ngenomes << "~~~~~~\n";
+			
+			int ngenomes = calcTotalPop(&pop);
+			//if(ngenomes != cur_ngenomes){ //only rebalance if pop size has changed!
+			//did_rebalance = true;
+			//MPI_Send(&did_rebalance, 1, MPI::BOOL, i, 9090, MPI_COMM_WORLD); //tell other procs to recv new number of genomes this Gen
+			//ngenomes = cur_ngenomes; //set ngenomes to current pop size	
+			//clear/ reset start_vec and genomes_per_proc_vec
+			start_vec.clear();
+			start_vec.push_back(0);
+			genomes_per_proc_vec.clear();
+			//std::cout << "ngenomes=" << ngenomes << endl;
+			//std::vector <int> genomes_per_proc; //index=proc id, stores starting index of genomes
+			int small = floor(double(ngenomes)/double(nprocs));
+			int big = small + 1;
+			int num_big_procs = ngenomes % nprocs;
+			if(num_big_procs > 0){ //proc 0 is always first to get big
+				genomes_per_proc = big;
+				genomes_per_proc_vec.push_back(big);
+			}
+			else{
+				genomes_per_proc = small;
+				genomes_per_proc_vec.push_back(small);
+			}
+			//cout << "num_big_procs=" << num_big_procs << ", small="<<small<<", big="<< big<< endl;
+			for(int i = 1; i < nprocs; i++){//for each proc
+				int temp_genomes_per_proc;
+				if(i < num_big_procs){
+					start += big;
+					genomes_per_proc_vec.push_back(big);
+					temp_genomes_per_proc = big;
+				}
+				else if( i == num_big_procs){
+					start+=big;
+					genomes_per_proc_vec.push_back(small);
+					temp_genomes_per_proc = small;
+				}
+				else{
+					start += small;
+					genomes_per_proc_vec.push_back(small);
+					temp_genomes_per_proc = small;
+				}
+				start_vec.push_back(start);
+				
+				MPI_Send(&start, 1, MPI_INT, i, 9091, MPI_COMM_WORLD);
+				MPI_Send(&temp_genomes_per_proc, 1, MPI_INT, i, 9092, MPI_COMM_WORLD);
+				//cout << "for proc "<<i<<" start should be " << start << endl;
+			}	
+		}
+		if(myid != 0){
+			if(did_rebalance == true){
+				//MPI recv to buffer "start" from rank 0
+				MPI_Recv(&start, 1, MPI_INT, 0, 9091, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+				MPI_Recv(&genomes_per_proc, 1, MPI_INT, 0, 9092, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+				cout << "rank " << myid << " starts at genome index " << start<<" with "<<genomes_per_proc<<" g's" << endl;
+			}
+		}
+		else if (myid == 0 && did_rebalance == true){
+			start = 0;
+			cout << "rank " << myid << " starts at genome index " << start << " with "<<genomes_per_proc<<" g's" <<endl;
+		}
+		
+		//unsure if neccessary	
+		MPI_Barrier(MPI_COMM_WORLD);
+
 		auto start_gen_a = std::chrono::high_resolution_clock::now(); //temp fix, remove later for parallel timing
 		if(myid == 0){
 			start_gen_a = std::chrono::high_resolution_clock::now();
@@ -202,23 +321,30 @@ int main(int argc, char **argv){
 		filename += to_string(myid) + ".csv";
 		ofstream fp;
 		fp.open(filename);
-		int genome_count = 0; //is the TP or what?
+		int genome_count = 0; //tracks what genome we're on
 		int rank = 1;
 		//for each species, and each genome within, calcNodeInfo, then writeToFile
 		if(myid==0){
 			for(int i = 0; i < int(pop.size()); i++){//for each species 
 				for(int j = 0; j < pop[i].size(); j++){//for each genome
 					pop[i].genome_vec[j].calcNodeInfo(&nov);
-					if(j < start + genomes_per_proc){
+					if(genome_count < start + genomes_per_proc){
+						std::cout << "genome " << genome_count << " written to rank " << rank<< std::endl;
 						pop[i].genome_vec[j].writeToFileSend(&fp, genome_count, 0); //from sequential version
 					}
 					else{//if outside genomes for proc 0
 						//find which rank we are writing genomes too
 						bool found_proc = false;
 						while(found_proc == false){
-							if(j < start_vec[rank] + genomes_per_proc_vec[rank]){
+							if(genome_count < start_vec[rank] + genomes_per_proc_vec[rank]){
 								//then we are in proc == rank
+								std::cout << "genome_count="<<genome_count<<\
+									"genome index j =" << j <<\
+									",  start_vec[rank] + genomes_per_proc_vec[rank]=" <<\
+									 start_vec[rank] + genomes_per_proc_vec[rank] << std::endl;
+								std::cout << "sending genome to rank " << rank << std::endl;
 								pop[i].genome_vec[j].writeToFileSend(&fp, genome_count, rank);
+								std::cout << "ran writeToFileSend()...\n";
 								found_proc = true;
 							}
 							else{
@@ -249,8 +375,9 @@ int main(int argc, char **argv){
 		
 		string e_caller = "python evaluate.py " + to_string(myid);
 		const char *callme = e_caller.c_str();
+		//MPI_Barrier(MPI_COMM_WORLD);
 		system(callme);
-		MPI_Barrier(MPI_COMM_WORLD);
+		MPI_Barrier(MPI_COMM_WORLD); //all ranks need to return their fitnesses first
 		//const char* fitness_combiner = "cat local_fitness* > fitness.csv"
 		//system(fitness_combiner);
 		//system("./calls_evaluate");
@@ -267,7 +394,7 @@ int main(int argc, char **argv){
 
 		/*[Parallel] Combine the fitness files into 1 big fitness file*/
 		if(myid==0){
-
+			std::cout << "rank " << myid << "combing fitnessX.csv files" << endl;
 			//open another fp for writing out to file
 			
 			ofstream fpfitness;
@@ -275,7 +402,7 @@ int main(int argc, char **argv){
 
 
 			for(int i = 0; i < nprocs; i++){
-				string fitfile = "fitness" + to_string(myid) + ".csv";
+				string fitfile = "fitness" + to_string(i) + ".csv";
 					
 								
 				fstream fpin; //create file pointer
@@ -283,7 +410,7 @@ int main(int argc, char **argv){
 				string line, score;
 				getline(fpin, line);//reads all values and stores in "line"
 				stringstream s(line);
-				for(int j = 0; j <genomes_per_proc_vec[rank]; j++){
+				for(int j = 0; j <genomes_per_proc_vec[i]; j++){
 					getline(s,score,',');
 					fpfitness << stoi(score) <<",";
 				}
@@ -299,6 +426,8 @@ int main(int argc, char **argv){
 
 			/*Read the fitnesses from the file and assign to genomes' members*/
 			
+			std::cout << "rank 0 reading in fitness.csv into all genomes";
+
 			fstream fpin; //create file pointer
 			fpin.open("fitness.csv", ios::in); //open the file
 			string line, score;
@@ -325,7 +454,7 @@ int main(int argc, char **argv){
 
 
 			/*=== Generational Pop. Print Out  ===*/	
-			cout << "====== Generation " << gen_count << "/" << NUM_GEN <<" ======\n";
+			cout << "====== [pre-crossover] Generation " << gen_count << "/" << NUM_GEN <<" ======\n";
 			cout << "Number of Species:  " << pop.size() << "\n";
 			cout << "Number of Genomes: " << calcTotalPop(&pop) << std::endl;
 			double pop_avg_fitness = calcAverageFitness(&pop);
@@ -338,9 +467,11 @@ int main(int argc, char **argv){
 			}
 	 
 
-
+			
+			ngenomes = calcTotalPop(&pop);// record pre-reproduce pop size for rebalancing in Next Generation
 			/*reproduce (create new population from fittest of old pop)*/
 			reproduce(&pop, POP_SIZE, &nov);
+			cout << "[POST-CROSSOVER]Number of Genomes: " << calcTotalPop(&pop) << std::endl;
 			//std::cout <<"[MainLoop] called reproduce\n";
 			gen_count++;
 			auto stop_gen_b = std::chrono::high_resolution_clock::now(); //stop timing before eval
@@ -354,17 +485,20 @@ int main(int argc, char **argv){
 	neat_time_fp.close(); //close fp for writing time of NEAT execution/Generation
 	timefp.close(); //close file pointer for recording evaluation times/generation
 	fit_fp.close();
+
 	/*END OF MAIN LOOP: printing results to confirm code working*/
-	MPI_Finalize(); //the REAL Finalize call
 	/*printing results...*/
-	cout << "\n\n\n======After Main Loop our population looks like this after "<<gen_count\
-		<<" generations =======:\n";
-	cout << "Number of Species:  " << pop.size() << "\n";
-	cout << "Number of Genomes: " << calcTotalPop(&pop) << std::endl;
-	cout << "Genomes per Species:\n";
-	for(int j = 0; j < (int)pop.size(); j++){
-		cout << "	Species " << j << " has " << pop[j].size() << " genomes\n";
+	if(myid == 0){
+		cout << "\n\n\n======After Main Loop our population looks like this after "<<gen_count\
+			<<" generations =======:\n";
+		cout << "Number of Species:  " << pop.size() << "\n";
+		cout << "Number of Genomes: " << calcTotalPop(&pop) << std::endl;
+		cout << "Genomes per Species:\n";
+		for(int j = 0; j < (int)pop.size(); j++){
+			cout << "	Species " << j << " has " << pop[j].size() << " genomes\n";
+		}
 	}
+	
 	 //print the last two species's genomes
 	/*
 	cout << "Last species consists of these Genomes:\n";
@@ -377,24 +511,9 @@ int main(int argc, char **argv){
 		pop[pop.size()-2].genome_vec[i].summary(); //print summary of genome
 	}
 	*/
-	//nov.summary();
-	
-	/*TESTING WRITE NIV from GENOME.H*/
-	//cout << "\n--writing NIV for first genome of first species--\n";
-	//pop[0].genome_vec[0].calcNodeInfo(&nov);
-	
-	/*TESTING WRITING GENOME TO FILE*/
-	/*
-	char filename[] = "genome_data.csv";
-	ofstream fp;
-	fp.open(filename);
-	for(int i = 0; i < 3; i++){
-		pop[0].genome_vec[0].writeToFile(&fp, 0);
-	}
-	fp.close();	
-	*/
 
-
+	
+	MPI_Finalize(); //the REAL Finalize call
 	return 0;
 		
 }
@@ -409,16 +528,16 @@ void  writeToFileRecv(ofstream *fp){
 	std::vector <double> node_info_1d; //holds all connection and weight info
 	std::vector <int> row_lens_1d; //holds row length of each node for a given genome
 	
-	MPI_Recv(&node_info_size, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-	std::cout << "recv node_info_size " << node_info_size << endl;
-	MPI_Recv(&row_lens_size, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-	std::cout << "recv row_lens_size " << row_lens_size << endl;
+	MPI_Recv(&node_info_size, 1, MPI_INT, 0, 991, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	//std::cout << "recv node_info_size " << node_info_size << endl;
+	MPI_Recv(&row_lens_size, 1, MPI_INT, 0, 992, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	//std::cout << "recv row_lens_size " << row_lens_size << endl;
 	node_info_1d.reserve(node_info_size);
 	row_lens_1d.reserve(row_lens_size);	
-	MPI_Recv(&node_info_1d[0], node_info_size, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-	std::cout << "recv'd node_info_1d" << endl;
-	MPI_Recv(&row_lens_1d[0], row_lens_size, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-	std::cout << "recv'd node_info_1d" << endl;
+	MPI_Recv(&node_info_1d[0], node_info_size, MPI_DOUBLE, 0, 993, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	//std::cout << "recv'd node_info_1d" << endl;
+	MPI_Recv(&row_lens_1d[0], row_lens_size, MPI_INT, 0, 994, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	//std::cout << "recv'd node_info_1d" << endl;
 
 	//WRITE TO FILE FROM 1D:	
 	int count = 0; //index for node_info_1d

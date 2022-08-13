@@ -27,9 +27,11 @@ class Genome{
 		double fitness = 1; //how fit this genome is on the test
 		double adjusted = 1; //adjusted fitness score	
 		
+		
+		//1d version of this Genome's fundamental data (for MPI send/recv)
 		std::vector <double> node_info_1d; //node input count, input node numbers, and weights
 		std::vector <int> row_lens_1d; //the row length for each node for this Genome
-
+	
 		/*Constructors, Destructors, etc...*/
 		
 		/**
@@ -245,11 +247,26 @@ class Genome{
 				//MPI_Send(node_inputs.size(), 1, MPI_INT, rank/*rank*/, 99, MPI_COMM_WORLD); 
 				int node_info_size = int( node_info_1d.size() );
 				int row_lens_size = int( row_lens_1d.size() );
-				std::cout << "attempting to send genome info\n";
-				MPI_Send(&node_info_size, 1, MPI_INT, rank/*rank*/, 99, MPI_COMM_WORLD); 
-				MPI_Send(&row_lens_size, 1, MPI_INT, rank/*rank*/, 99, MPI_COMM_WORLD);
-				MPI_Send(&node_info_1d[0], int(node_info_1d.size()), MPI_DOUBLE, rank/*rank*/, 99, MPI_COMM_WORLD); 
-				MPI_Send(&row_lens_1d[0], int(row_lens_1d.size()), MPI_INT, rank/*rank*/, 99, MPI_COMM_WORLD); //send node inputs
+				//std::cout << "attempting to send genome info\n";
+				//std::cout << "in writeToFileSend() node_info_1d.size"
+				//std::cout << "A\n";
+				if ( MPI_Send(&node_info_size, 1, MPI_INT, rank/*rank*/, 991, MPI_COMM_WORLD)!= MPI_SUCCESS){
+					std::cout << "error [Genome.h>writeToFileSend()] sending node_info_size\n";
+				} 
+				//std::cout << "B\n";
+				if (MPI_Send(&row_lens_size, 1, MPI_INT, rank/*rank*/, 992, MPI_COMM_WORLD) != MPI_SUCCESS){
+					std::cout << "error [Genome.h>writeToFileSend()] sending row_lens_size\n";
+				}
+				//std::cout << "C, row_lens_size=" <<row_lens_size<<", node_info_size="<< node_info_size << "\n" ;
+				if( MPI_Send(&node_info_1d[0], node_info_size, MPI_DOUBLE, rank/*rank*/, 993, MPI_COMM_WORLD) !=MPI_SUCCESS ){
+					std::cout << "error [Genome.h>writeToFileSend()] sending node_info_1d\n";
+
+				} 
+				//std::cout << "D\n";
+				if( MPI_Send(&row_lens_1d[0], row_lens_size, MPI_INT, rank/*rank*/, 994, MPI_COMM_WORLD)!= MPI_SUCCESS ){
+					std::cout << "error [Genome.h>writeToFileSend()] sending row_lens_1d\n";
+				}
+				//std::cout << "E\n";
 				/* Send the input and weights to the rank.  First send the number of ints/double we are sending,
  				* then send the values*/	
 			}
@@ -338,6 +355,7 @@ class Genome{
  		* */
 		void convertNodeInfo1d(){
 			//int count = 0; //counts value weve added to node_inputs_1
+			std::cout << "\n in convertNodeInfo1d() node_inputs.size()="<<node_inputs.size()<<" \n";
 			for(int i = 0; i < int(node_inputs.size()); i++){ //for each node(row)
 				for(int j = 0; j < int(node_inputs[i].size()); j++){ //for each elm (input)
 					node_info_1d.push_back( node_inputs[i][j] );
@@ -352,6 +370,7 @@ class Genome{
 					node_info_1d.push_back( node_weights[i][j]) ;
 				}
 			}
+			std::cout << "at end of convertNodeInfo() node_info_1d.size() = " <<node_info_1d.size() << std::endl;
 		}
 
 		/***
@@ -543,10 +562,12 @@ class Genome{
 		std::vector <std::vector <double>> node_inputs; //all nodes and thier input nodes
 		std::vector <std::vector<double>> node_weights; //all nodes and all thier weights
 
+
 		//std::vector <Gene> gene_vec; //holds the genes in a std vector 
 	//	double fitness; //how fit this genome is on the test
 	//	double adjusted; //adjusted fitness score	
-		const int MUT_MAGN = 100;  /*max ammount weight can change*/
+		const int MUT_MAGN = 10;  /*max ammount weight can change*/
+
 		int node_count = 5; //be sure to set according to initial architecture 
 		
 		/*MUTATION PROBABILITY THRESHOLDS*/

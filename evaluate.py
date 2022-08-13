@@ -20,13 +20,13 @@ import sys
 
 
 rank = sys.argv[1]
-print("in evaluate.py, rank detected = ", rank);
+#print("in evaluate.py, rank detected = ", rank);
 #set seed to get same results on same NNs and same inputs
 
 
 ####CONTROLS AND HYPERPARAMETERS
 seed = 1996
-
+max_steps = 500
 
 
 
@@ -183,7 +183,7 @@ with open(filename,'r') as read_obj:
                                 break
 
 
-
+                print("rank ", rank, "finished building NN")
                 #(step N)build the model
                 model = tf.keras.Model(inputs=[input1, input2, input3, input4],
                                        outputs=output_layer)
@@ -243,7 +243,7 @@ with open(filename,'r') as read_obj:
 
 
                 #change max episode length
-                env._max_episode_steps = 300
+                env._max_episode_steps = max_steps
 
 
                 #get initial state
