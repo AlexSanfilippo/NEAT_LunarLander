@@ -355,7 +355,7 @@ class Genome{
  		* */
 		void convertNodeInfo1d(){
 			//int count = 0; //counts value weve added to node_inputs_1
-			std::cout << "\n in convertNodeInfo1d() node_inputs.size()="<<node_inputs.size()<<" \n";
+			//std::cout << "\n in convertNodeInfo1d() node_inputs.size()="<<node_inputs.size()<<" \n";
 			for(int i = 0; i < int(node_inputs.size()); i++){ //for each node(row)
 				for(int j = 0; j < int(node_inputs[i].size()); j++){ //for each elm (input)
 					node_info_1d.push_back( node_inputs[i][j] );
@@ -370,7 +370,7 @@ class Genome{
 					node_info_1d.push_back( node_weights[i][j]) ;
 				}
 			}
-			std::cout << "at end of convertNodeInfo() node_info_1d.size() = " <<node_info_1d.size() << std::endl;
+			//std::cout << "at end of convertNodeInfo() node_info_1d.size() = " <<node_info_1d.size() << std::endl;
 		}
 
 		/***
@@ -574,8 +574,8 @@ class Genome{
 		double P_weight = 0.8; //chance this genome will mutate its weight(s)
 		double P_perturb = 0.9; //chance to change a genomes weight by a multiple 
 		double P_newweight = 0.1; //chance to replace weight with new random weight
-		double P_newnode = 0.05; //add new gene for new node, splitting one into two //should be 0.05
-		double P_newlink = 0.30; //add new connection (link) between 2 existing nodes (new gene) 
+		double P_newnode = 0.15; //add new gene for new node, splitting one into two //should be 0.03
+		double P_newlink = 0.6; //add new connection (link) between 2 existing nodes (new gene) 0.05
 			
 		/*Other Hypers*/
 };

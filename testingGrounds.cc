@@ -58,9 +58,9 @@ int main(int argc, char **argv){
 		
 
 	/*SIMULATION HYPERPARAMETERS*/
-	const int POP_SIZE  = 50; //number of genomes in the whole population
+	const int POP_SIZE  = 150; //number of genomes in the whole population
 	const int NUM_MUT = 1; //number of mutation
-	const int NUM_GEN = 25; //number of generations	
+	const int NUM_GEN = 20; //number of generations	
 	int gen_count = 0;
 	NOV nov(4,1); //create Nodal Order Vector object
 	
@@ -329,7 +329,7 @@ int main(int argc, char **argv){
 				for(int j = 0; j < pop[i].size(); j++){//for each genome
 					pop[i].genome_vec[j].calcNodeInfo(&nov);
 					if(genome_count < start + genomes_per_proc){
-						std::cout << "genome " << genome_count << " written to rank " << rank<< std::endl;
+						//std::cout << "genome " << genome_count << " written to rank " << rank<< std::endl;
 						pop[i].genome_vec[j].writeToFileSend(&fp, genome_count, 0); //from sequential version
 					}
 					else{//if outside genomes for proc 0
@@ -338,13 +338,15 @@ int main(int argc, char **argv){
 						while(found_proc == false){
 							if(genome_count < start_vec[rank] + genomes_per_proc_vec[rank]){
 								//then we are in proc == rank
+								/*
 								std::cout << "genome_count="<<genome_count<<\
 									"genome index j =" << j <<\
 									",  start_vec[rank] + genomes_per_proc_vec[rank]=" <<\
 									 start_vec[rank] + genomes_per_proc_vec[rank] << std::endl;
 								std::cout << "sending genome to rank " << rank << std::endl;
+								*/
 								pop[i].genome_vec[j].writeToFileSend(&fp, genome_count, rank);
-								std::cout << "ran writeToFileSend()...\n";
+								//std::cout << "ran writeToFileSend()...\n";
 								found_proc = true;
 							}
 							else{
@@ -391,7 +393,7 @@ int main(int argc, char **argv){
 		timefp << "GEN " << g << ": " << double(duration.count())/1000000 << "\n";
 		//std::cout << "GEN " << g << ": " << duration.count()/1000000 << ",\n";	
 		
-
+		bool fitness_stop = false;
 		/*[Parallel] Combine the fitness files into 1 big fitness file*/
 		if(myid==0){
 			std::cout << "rank " << myid << "combing fitnessX.csv files" << endl;
@@ -400,7 +402,8 @@ int main(int argc, char **argv){
 			ofstream fpfitness;
 			fpfitness.open("fitness.csv");
 
-
+			int gcount = 0; //count which genome we're one as we go thru fitnesses
+			
 			for(int i = 0; i < nprocs; i++){
 				string fitfile = "fitness" + to_string(i) + ".csv";
 					
@@ -412,7 +415,25 @@ int main(int argc, char **argv){
 				stringstream s(line);
 				for(int j = 0; j <genomes_per_proc_vec[i]; j++){
 					getline(s,score,',');
+					//STOP CONDITION
+					if(stoi(score) > 2000){
+						cout << "built a perfect NN at " << gcount << endl;
+						int a = 0;
+						while(a <= gcount){
+							for(int b = 0; b < int(pop.size()); b++){
+								for(int c = 0; c < pop[b].size(); c++){
+									if(a == gcount){
+										cout << "FALSE-PERFECT GENOME SUMMARY:\n";
+										pop[b].genome_vec[c].summary();
+									}
+									a += 1;
+								}
+							}
+						}
+						fitness_stop = true;
+					}
 					fpfitness << stoi(score) <<",";
+					gcount += 1;
 				}
 				fpin.close();
 				//read in the file data(like below)
@@ -420,8 +441,8 @@ int main(int argc, char **argv){
 			}
 			fpfitness.close();
 		}
-
-
+		//broadcast "target fitness reached" signal to all procs from root (0)
+		MPI_Bcast(&fitness_stop, 1, MPI::BOOL, 0, MPI_COMM_WORLD);
 		if(myid == 0){
 
 			/*Read the fitnesses from the file and assign to genomes' members*/
@@ -454,7 +475,7 @@ int main(int argc, char **argv){
 
 
 			/*=== Generational Pop. Print Out  ===*/	
-			cout << "====== [pre-crossover] Generation " << gen_count << "/" << NUM_GEN <<" ======\n";
+			cout << "====== [pre-crossover] Generation " << gen_count << "/" << NUM_GEN-1 <<" ======\n";
 			cout << "Number of Species:  " << pop.size() << "\n";
 			cout << "Number of Genomes: " << calcTotalPop(&pop) << std::endl;
 			double pop_avg_fitness = calcAverageFitness(&pop);
@@ -479,6 +500,13 @@ int main(int argc, char **argv){
 			auto neat_duration_b = std::chrono::duration_cast<std::chrono::microseconds>(stop_gen_b - start_gen_b);
 			neat_time_fp << "GEN " << g << ": " << double((neat_duration_a.count() + neat_duration_b.count())) / 1000000 << "\n";
 			//std::cout << "nt GEN " << g << ": " << double(neat_duration_b.count()) / 1000 << "\n";
+		}
+		
+		//if we hit a fitness score we want, stop the program
+		if(fitness_stop == true){
+			cout << "hit fitness_stop on rank " << myid << endl;
+			MPI_Finalize();
+			return 0;
 		}
 	}
 	
@@ -784,7 +812,7 @@ void reproduce(std::vector <Species> *pop_ptr, const int MAX_POP, NOV *nov){
 
 
 	/*HYPER PARAMETERS*/ //add these to a struct in a world_setting.h file later on
-	int dist_threshold = 25; //not sure what to set this to
+	int dist_threshold = 30; //paper says 3
 	
 
 

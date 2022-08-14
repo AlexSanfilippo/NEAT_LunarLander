@@ -19,7 +19,7 @@ import csv
 import sys
 
 
-rank = sys.argv[1]
+#rank = sys.argv[1]
 #print("in evaluate.py, rank detected = ", rank);
 #set seed to get same results on same NNs and same inputs
 
@@ -72,7 +72,7 @@ layer_name_list = [] #stores list of names of all named layers-used for weight s
 
 #node_row = []
 from csv import reader
-filename = 'genome_data' + rank + '.csv'
+filename = 'perfect_genome.csv'
 with open(filename,'r') as read_obj:
     csv_reader = reader(read_obj)
 
@@ -286,12 +286,4 @@ with open(filename,'r') as read_obj:
         if(hit_END == False):
             node_list.append(node_row)
             
-print("fit in rank ",rank ," = ", fit)
-#write fit to file
-fitfile = "fitness" + rank + ".csv";
-#file = open('fitness.csv', 'w')
-file = open(fitfile, 'w')
-writer = csv.writer(file)
-
-writer.writerow(fit)
-file.close()
+print("fit = ", fit)
