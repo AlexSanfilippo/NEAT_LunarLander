@@ -40,16 +40,22 @@ class Genome{
  		*
  		* */
 		Genome(){
-			//std::cout << "New Default Genome constructed\n";
-			/*these four genes form the minimal network*/
-			Gene A(1, 5, 1, true);
+			/*these 96 genes form the minimal network for Walker*/
+			Gene A(1, 25, 1, true);
 			A.setInnov(1);
 			A.setInnovCount(1);
-			Gene B(2, 5, 1, true);
-			Gene C(3, 5, 1, true);
-			Gene D(4, 5, 1, true);
 			
-			std::vector<Gene> temp_gene_vec = {A, B, C, D};	
+			std::vector<Gene> temp_gene_vec = {A};
+			for(int j = 25; j <= 28; j++){
+				for(int i = 1; i <= 24; i++){
+					if(!(j==25 && i==1)){	
+						Gene G(i, j, 1, true);
+						temp_gene_vec.push_back(G);
+					}
+				}
+
+			}
+			
 			gene_vec = temp_gene_vec; //deep copy since no pointers in Gene objs 
 			temp_gene_vec.clear();  //remove elements of vector
 			temp_gene_vec.shrink_to_fit(); //deallocate memory of vector
@@ -504,7 +510,7 @@ class Genome{
 				//randomly decide whether to use gene A's input
 				//or output as the new cnxn's input. same
 				//logic for output from gene "B"
-				while(rand_in == rand_out || (rand_in <= 4 && rand_out <= 4) ){
+				while(rand_in == rand_out || (rand_in <= NUM_INPUT_NODES && rand_out <= NUM_INPUT_NODES) ){
 					if(urd(gen) < 0.5){
 						rand_in = gene_vec[cur_indexA].getIn();
 					}	
@@ -571,14 +577,15 @@ class Genome{
 		//Contain Genome's nodal data for keras to use.  write this to file
 		std::vector <std::vector <double>> node_inputs; //all nodes and thier input nodes
 		std::vector <std::vector<double>> node_weights; //all nodes and all thier weights
-
+		
+		const int NUM_INPUT_NODES = 24; //number of input nodes
 
 		//std::vector <Gene> gene_vec; //holds the genes in a std vector 
 	//	double fitness; //how fit this genome is on the test
 	//	double adjusted; //adjusted fitness score	
 		const int MUT_MAGN = 3;  /*Max magnitude of set weight random values, +/-*/
 
-		int node_count = 5; //be sure to set according to initial architecture 
+		int node_count = 28; //be sure to set according to initial architecture 
 		
 		/*MUTATION PROBABILITY THRESHOLDS*/
 		double P_weight = 0.8; //chance this genome will mutate its weight(s)
