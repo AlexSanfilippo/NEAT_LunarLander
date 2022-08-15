@@ -58,7 +58,7 @@ int main(int argc, char **argv){
 		
 
 	/*SIMULATION HYPERPARAMETERS*/
-	const int POP_SIZE  = 150; //number of genomes in the whole population
+	const int POP_SIZE  = 100; //number of genomes in the whole population
 	const int NUM_MUT = 1; //number of mutation
 	const int NUM_GEN = 20; //number of generations	
 	int gen_count = 0;
@@ -812,7 +812,7 @@ void reproduce(std::vector <Species> *pop_ptr, const int MAX_POP, NOV *nov){
 
 
 	/*HYPER PARAMETERS*/ //add these to a struct in a world_setting.h file later on
-	int dist_threshold = 30; //paper says 3
+	int dist_threshold = 3; //paper says 3
 	
 
 

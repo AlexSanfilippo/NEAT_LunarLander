@@ -12,6 +12,7 @@
 
 
 #include <vector>
+#include <algorithm>
 #include <iostream>
 #include <fstream> //for writing to files
 #include <mpi.h>
@@ -390,18 +391,26 @@ class Genome{
  			* this will cause problems otherwise.*/
 			//auto uid_node = std::uniform_int_distribution<>(1, nov->size()); //random node(neuron)
 			//auto uid_node = std::uniform_int_distribution<>(1, nov->size()); //random INPUT node(neuron)
-			auto urd_weight = std::uniform_real_distribution<>(-MUT_MAGN, MUT_MAGN); 
-			auto urd_p = std::uniform_real_distribution<>(-2,2); //for weight perturbation
-			if(urd(gen) < P_weight){ //if we mutate this GENOME's weights
 				
-				/*CHANGE WEIGHTS OF NODES*/
-				for(unsigned long int i = 0; i < gene_vec.size(); i++){ //for each gene
+			/*CHANGE WEIGHTS OF NODES*/
+			for(unsigned long int i = 0; i < gene_vec.size(); i++){ //for each gene
+				auto urd_weight = std::uniform_real_distribution<>(-MUT_MAGN, MUT_MAGN); 
+				auto urd_p = std::uniform_real_distribution<>(0.1,0.3); //for weight perturbation
+				auto urd_sign = std::uniform_real_distribution<>(-1,1); //for weight perturbation
+				if(urd(gen) < P_weight){ //if we mutate this GENE's weights
 					if(urd(gen) < P_perturb){ //perturb old weight
+						//NEW Method (14 Aug, 2022)
 						double old_weight = gene_vec[i].getWeight();
-                                                gene_vec[i].setWeight(old_weight + old_weight*urd_p(gen));	
-						
+						gene_vec[i].setWeight(max(0.25, old_weight + signbit(urd_sign(gen))\
+						*urd_p(gen)*old_weight));
+
+						//OLD
+						/*
+						double old_weight = gene_vec[i].getWeight();
+						gene_vec[i].setWeight(old_weight + old_weight*urd_p(gen));	
+						*/
 					/*/std::cout << "PERTURBED gene #" << gene_vec[i].getInnov() << "'s weight to " \
-                                                << gene_vec[i].getWeight() << std::endl;  */
+						<< gene_vec[i].getWeight() << std::endl;  */
 					}
 					else{ //new weight
 						gene_vec[i].setWeight(urd_weight(gen));
@@ -410,6 +419,7 @@ class Genome{
 					}
 				}
 			}
+			
 
 			/*ADD NEW NODE*/
 			
@@ -566,7 +576,7 @@ class Genome{
 		//std::vector <Gene> gene_vec; //holds the genes in a std vector 
 	//	double fitness; //how fit this genome is on the test
 	//	double adjusted; //adjusted fitness score	
-		const int MUT_MAGN = 10;  /*max ammount weight can change*/
+		const int MUT_MAGN = 3;  /*Max magnitude of set weight random values, +/-*/
 
 		int node_count = 5; //be sure to set according to initial architecture 
 		
@@ -574,8 +584,8 @@ class Genome{
 		double P_weight = 0.8; //chance this genome will mutate its weight(s)
 		double P_perturb = 0.9; //chance to change a genomes weight by a multiple 
 		double P_newweight = 0.1; //chance to replace weight with new random weight
-		double P_newnode = 0.15; //add new gene for new node, splitting one into two //should be 0.03
-		double P_newlink = 0.6; //add new connection (link) between 2 existing nodes (new gene) 0.05
+		double P_newnode = 0.03; //add new gene for new node, splitting one into two //should be 0.03
+		double P_newlink = 0.05; //add new connection (link) between 2 existing nodes (new gene) 0.05
 			
 		/*Other Hypers*/
 };
