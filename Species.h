@@ -9,7 +9,7 @@
 #include <math.h>
 #include "gene.h"
 #include "Genome.h"
-
+#include <string>
 
 std::default_random_engine mygen(1996);
 
@@ -18,16 +18,18 @@ class Species {
         public:
 		
 		//Constructors
-		
+		/**
+ 		* @brief default constructor for making initial species*/
 		Species(int innov_count){
 			Gene g = Gene(0,0,0,true);
 			g.setInnovCount(innov_count);
+			name = "1";
 		}
 		/*for making a new species given a genome that does not
  		* fit into any existing species.  Not sure if need a copy
  		* constructor for Genome for this to work right.  Issue 
  		* may arise with deep vs shallow copying.*/
-		Species(Genome g, int innov_count){
+		Species(Genome g, int innov_count, string parent_name, int parent_subspecies_count){
 			genome_vec.push_back(g);
 			rep = g; 
 			rep_index = 0;
@@ -35,12 +37,53 @@ class Species {
 			//update innov_count 
 			Gene g2 = Gene(0,0,0,true);
                         g2.setInnovCount(innov_count);
-
+			name = parent_name + "_" + to_string(parent_subspecies_count+1);
+			//std::cout << "created new subspecies with name" << name<< std::endl;
 		}
 
 		std::vector <Genome> genome_vec; //vector of genomes in this species
 		
+		/**
+ 		* @brief returns this species name
+ 		* @return std::string name*/
+		string get_name(){return name; }
 		
+		/**
+ 		* @brief sets this species name
+ 		* @return void*/
+		void set_name(string n){
+			name = n; 
+		}
+		/**
+ 		* @brief return number of subspecies that broke away from this species
+ 		* */
+		int get_num_subspecies(){return num_subspecies; }
+		
+		/**
+ 		* @breif set number of subspecies
+ 		* */
+		void set_num_subspecies(int n){
+			num_subspecies = n;
+		}
+		/**
+ 		* @brief increment the number of subspecies
+ 		* */
+		void add_subspecies(){
+			num_subspecies += 1;
+		}
+
+		//DEATH CLOCK FXNS
+		void set_death_clock(int n){
+			death_clock = n;
+		}	
+		int get_death_clock(){
+			return death_clock;
+		}
+		void add_death_clock(){
+			death_clock += 1;
+		}
+
+ 
 		Genome rep; //ptr to representative genome
 		int rep_index;
 		/**
@@ -200,7 +243,9 @@ class Species {
 	private:
 		int offspring; //number of children to produce during reproduction
 		double fitness; //the average fitness of this species
-
+		string name;
+		int num_subspecies = 0;
+		int death_clock = 0; //count up each time species is sickly ( <5% size of pop and <avg pop fitness
 };
 
 #endif

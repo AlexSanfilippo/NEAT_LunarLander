@@ -90,8 +90,15 @@ double calcAverageFitness(std::vector <Species> *pop_ptr){
  *
  * */
 void calcOffspring(std::vector <Species> *pop_ptr, const int MAX_POP){
+
+	/*HYPERS*/
+	//if species goes 3 gens being below 5% of total pop and <half pop fitness
+	//then than species is given no offspring (end of species)
+	const int MIDNIGHT = 2;
+
 	std::vector<Species> &pop = *pop_ptr;
-	//int pop_size = calcTotalPop(&pop);
+	int pop_size = calcTotalPop(&pop);
+	int five_percent; //5% of total pop size
 	//int vacancy = MAX_POP - pop_size;
 	double sumOfSpeciesAdjusted = 0;
 	std::vector <double> sumadj_vec;
@@ -109,23 +116,46 @@ void calcOffspring(std::vector <Species> *pop_ptr, const int MAX_POP){
  		std::cout << "sumadj this species=" << sumadj_vec[i] << ", sum adjusted all species="\
 			 << sumOfSpeciesAdjusted << std::endl;
 		*/
-		if(pop[i].size() > 1){
+		
+		if(pop_size < 50){
+			five_percent = 5;
+		}
+		else{
+			five_percent = floor(0.10*pop_size);
+		}
+		if(pop[i].size() > five_percent){
 			//was floor, changed to ceiling 
 			pop[i].setOffspring( ceil( (sumadj_vec[i]/sumOfSpeciesAdjusted) * double(MAX_POP) ) );
 		}
-		else if(pop[i].size() == 1){
+		else if(pop[i].size() <= five_percent && pop[i].size() > 0){
 			//std::cout << "pop size of 1 hit in [calcOffspring]\n";
 			if(pop[i].getFitness() < pop_avg_fitness){
-				pop[i].setOffspring(0);
+				pop[i].add_death_clock(); //add 1 to death clock
+				std::cout << pop[i].get_name() << " tic tic tic...\n";
+				if(pop[i].get_death_clock() == MIDNIGHT){
+					pop[i].setOffspring(0);
+					std::cout << "======DEATHCLOCK STRIKES MIDNIGHT======\n";
+				}
+				else{
+					pop[i].setOffspring( ceil( (sumadj_vec[i]/sumOfSpeciesAdjusted) * double(MAX_POP) ) );
+				}
+				//pop[i].setOffspring(0);
 			}
-			else{
-				pop[i].setOffspring( ceil( (sumadj_vec[i]/sumOfSpeciesAdjusted) * double(MAX_POP) ) );
+			else{ //reset death clock and give offspring as normal
+				pop[i].set_death_clock(0);
+				if(!(sumadj_vec[i] == 0)){					
+					pop[i].setOffspring( ceil( (sumadj_vec[i]/sumOfSpeciesAdjusted) * double(MAX_POP) ) );
+				}
+				else{
+					pop[i].setOffspring(0);
+				}
 			}
 		}
-		else{
+		else{ //ie, if species's size is 0
 			pop[i].setOffspring(0);
 		}
-		//std::cout << "offspring = " << pop[i].getOffspring() << " for species "<< i <<std::endl;
+		std::cout << "sumadj of this species = " << sumadj_vec[i] << " sumOfSpeciesAdjusted = " << sumOfSpeciesAdjusted << "\n";
+		std::cout << "offspring = " << pop[i].getOffspring() << " for species "<< pop[i].get_name() <<std::endl;
 	}	
 	//sleep(4);
 }
@@ -222,7 +252,7 @@ double compat(Genome A, Genome B){
 	std::cout << "E = " << E << std::endl;
 	std::cout << "D = " << D << std::endl;
 	*/
-	double delta = 1*E/N + 1*D/N + 0.5*W; //1,1,0.5
+	double delta = 32*E/N + 32*D/N + 0.5*W; //1,1,0.5
 	return delta;
 };
 

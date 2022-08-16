@@ -55,15 +55,18 @@ int main(int argc, char **argv){
 	/*==========  Version 1.1 of Main Loop  =========*/
 	//created 25-07-2022
 	//updated 10-08-2022
-		
 
+	bool do_fitness_stop = false; //whether stop if single NN performs
+	int fitness_stop_threshold = 1100;		
+	const int INPUT_NODES = 8;
+	const int OUTPUT_NODES = 4;
 	/*SIMULATION HYPERPARAMETERS*/
-	const int POP_SIZE  = 20; //number of genomes in the whole population
-	const int NUM_MUT = 1; //number of mutation
-	const int NUM_GEN = 3; //number of generations	
+	const int POP_SIZE  = 75; //number of genomes in the whole population
+	const int NUM_MUT = 1; //number of calls of mutate() on a genome per Generation
+	const int NUM_GEN = 20; //number of generations	
 	int gen_count = 0;
-	NOV nov(24,4); //create Nodal Order Vector object
-	
+	NOV nov(INPUT_NODES,OUTPUT_NODES); //create Nodal Order Vector object
+	//nov.summary();// TP	
 	std::vector <Species> pop; //population, a vector of species
 	Species species_init = Species(0); //the initial species
 	for(int i = 0; i < POP_SIZE; i++){
@@ -218,11 +221,11 @@ int main(int argc, char **argv){
 				did_rebalance = true;
 			}
 			
-			std::cout << "~~~~~~1/2Rebalancing because old pop = " << ngenomes <<\
+			std::cout << "~~~~~~1/2Rebalancing = " <<did_rebalance<<" bc old pop = " << ngenomes <<\
 			" and current pop = " <<cur_ngenomes << "~~~~~~\n";
 		}
 		//BCAST MUST BE CALLED ON ALL PROCS AND REQS NO RECV!!!!!!!!!!!!!
-		//std::cout <<"Bcasting "did_balance"\n"; 
+		//std::cout <<"Bcasting " << did_rebalance <<"\n"; 
 		MPI_Bcast(&did_rebalance, 1, MPI::BOOL, 0, MPI_COMM_WORLD);
 		//receive signal to rebalance on all ranks
 		//MPI_Recv(&did_rebalance, 1, MPI::BOOL, 0, 9090, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -235,10 +238,6 @@ int main(int argc, char **argv){
 			" and current pop = " <<ngenomes << "~~~~~~\n";
 			
 			int ngenomes = calcTotalPop(&pop);
-			//if(ngenomes != cur_ngenomes){ //only rebalance if pop size has changed!
-			//did_rebalance = true;
-			//MPI_Send(&did_rebalance, 1, MPI::BOOL, i, 9090, MPI_COMM_WORLD); //tell other procs to recv new number of genomes this Gen
-			//ngenomes = cur_ngenomes; //set ngenomes to current pop size	
 			//clear/ reset start_vec and genomes_per_proc_vec
 			start_vec.clear();
 			start_vec.push_back(0);
@@ -296,7 +295,6 @@ int main(int argc, char **argv){
 		
 		//unsure if neccessary	
 		MPI_Barrier(MPI_COMM_WORLD);
-
 		auto start_gen_a = std::chrono::high_resolution_clock::now(); //temp fix, remove later for parallel timing
 		if(myid == 0){
 			start_gen_a = std::chrono::high_resolution_clock::now();
@@ -313,7 +311,6 @@ int main(int argc, char **argv){
 				}
 			}
 		}
-
 
 		/*Write all Genomes to a File*/
 		//char filename[] = "genome_data.csv";
@@ -359,6 +356,7 @@ int main(int argc, char **argv){
 
 			}
 		}
+		
 		if(myid!=0){
 			
 			//recv weight vector from 0
@@ -374,7 +372,7 @@ int main(int argc, char **argv){
 		/*Call python script to evaluated all genome's fitnesses*/
 		auto stop_gen_a = std::chrono::high_resolution_clock::now(); //stop timing before eval
 		auto start = std::chrono::high_resolution_clock::now();
-		
+		//cout << "calling evaluate on rank" << myid << endl;
 		string e_caller = "python evaluate.py " + to_string(myid);
 		const char *callme = e_caller.c_str();
 		//MPI_Barrier(MPI_COMM_WORLD);
@@ -390,13 +388,13 @@ int main(int argc, char **argv){
 		auto stop = std::chrono::high_resolution_clock::now();
 		auto start_gen_b = std::chrono::high_resolution_clock::now(); //start timing after eval
 		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-		timefp << "GEN " << g << ": " << double(duration.count())/1000000 << "\n";
+		//timefp << "GEN " << g << ": " << double(duration.count())/1000000 << "\n";
 		//std::cout << "GEN " << g << ": " << duration.count()/1000000 << ",\n";	
 		
 		bool fitness_stop = false;
 		/*[Parallel] Combine the fitness files into 1 big fitness file*/
 		if(myid==0){
-			std::cout << "rank " << myid << "combing fitnessX.csv files" << endl;
+			//std::cout << "rank " << myid << "combing fitnessX.csv files" << endl;
 			//open another fp for writing out to file
 			
 			ofstream fpfitness;
@@ -416,21 +414,23 @@ int main(int argc, char **argv){
 				for(int j = 0; j <genomes_per_proc_vec[i]; j++){
 					getline(s,score,',');
 					//STOP CONDITION
-					if(stoi(score) > 2000){
+					if(stoi(score) > fitness_stop_threshold){
 						cout << "built a perfect NN at " << gcount << endl;
 						int a = 0;
 						while(a <= gcount){
 							for(int b = 0; b < int(pop.size()); b++){
 								for(int c = 0; c < pop[b].size(); c++){
 									if(a == gcount){
-										cout << "FALSE-PERFECT GENOME SUMMARY:\n";
+										cout << "PERFECT GENOME SUMMARY:\n";
 										pop[b].genome_vec[c].summary();
 									}
 									a += 1;
 								}
 							}
 						}
-						fitness_stop = true;
+						if(do_fitness_stop == true){
+							fitness_stop = true;
+						}
 					}
 					fpfitness << stoi(score) <<",";
 					gcount += 1;
@@ -447,7 +447,7 @@ int main(int argc, char **argv){
 
 			/*Read the fitnesses from the file and assign to genomes' members*/
 			
-			std::cout << "rank 0 reading in fitness.csv into all genomes";
+			//std::cout << "rank 0 reading in fitness.csv into all genomes";
 
 			fstream fpin; //create file pointer
 			fpin.open("fitness.csv", ios::in); //open the file
@@ -483,7 +483,7 @@ int main(int argc, char **argv){
 			fit_fp << pop_avg_fitness << endl;	
 			cout << "Species Stats:\n";
 			for(int j = 0; j < (int)pop.size(); j++){
-				cout << "       Species " << j << ": size: " << pop[j].size() << ", avg Fit: "\
+				cout << "       Species " << pop[j].get_name() << ": size: " << pop[j].size() << ", avg Fit: "\
 					<< pop[j].getFitness() << "\n";
 			}
 	 
@@ -492,7 +492,7 @@ int main(int argc, char **argv){
 			ngenomes = calcTotalPop(&pop);// record pre-reproduce pop size for rebalancing in Next Generation
 			/*reproduce (create new population from fittest of old pop)*/
 			reproduce(&pop, POP_SIZE, &nov);
-			cout << "[POST-CROSSOVER]Number of Genomes: " << calcTotalPop(&pop) << std::endl;
+			//cout << "[POST-CROSSOVER]Number of Genomes: " << calcTotalPop(&pop) << std::endl;
 			//std::cout <<"[MainLoop] called reproduce\n";
 			gen_count++;
 			auto stop_gen_b = std::chrono::high_resolution_clock::now(); //stop timing before eval
@@ -523,7 +523,7 @@ int main(int argc, char **argv){
 		cout << "Number of Genomes: " << calcTotalPop(&pop) << std::endl;
 		cout << "Genomes per Species:\n";
 		for(int j = 0; j < (int)pop.size(); j++){
-			cout << "	Species " << j << " has " << pop[j].size() << " genomes\n";
+			cout << "	Species " << pop[j].get_name() << " has " << pop[j].size() << " genomes\n";
 		}
 	}
 	
@@ -812,7 +812,7 @@ void reproduce(std::vector <Species> *pop_ptr, const int MAX_POP, NOV *nov){
 
 
 	/*HYPER PARAMETERS*/ //add these to a struct in a world_setting.h file later on
-	int dist_threshold = 3; //paper says 3
+	int dist_threshold = 1; //paper says 3
 	
 
 
@@ -837,6 +837,8 @@ void reproduce(std::vector <Species> *pop_ptr, const int MAX_POP, NOV *nov){
 			Species empty_spec = Species(old_innov_count);
 			new_pop.push_back(empty_spec); //add empty species to new pop
 			new_pop[sec_index].rep = pop[i].rep; //deep copy?
+			new_pop[sec_index].set_name( pop[i].get_name());
+			new_pop[sec_index].set_num_subspecies(pop[i].get_num_subspecies());
 			sec_index++;
 		}
 		else{
@@ -849,7 +851,7 @@ void reproduce(std::vector <Species> *pop_ptr, const int MAX_POP, NOV *nov){
 	int child_count = 0;
 
 	//now make children for each species and speciate the children
-	for(int i = 0; i < pop_size; i++){
+	for(int i = 0; i < pop_size; i++){ //for each species
 		//for each offspring to make...
 		for(int j = 0; j < pop[i].getOffspring(); j++){
 			//matchMaker() to get two parents indices
@@ -888,7 +890,7 @@ void reproduce(std::vector <Species> *pop_ptr, const int MAX_POP, NOV *nov){
 				int pop_size_dyn = new_pop.size(); //updates as new species are created;
 				bool child_placed = false;
 				//SPECIATE THE CHILD
-				//loop through species again and loop at repr. genome to determine child's species
+				//loop through species again and loop at representative genome to determine child's species
 				for(int k = 0; k < pop_size_dyn; k++){ 
 					
 					double dist = compat(child/*cur child genome*/, new_pop[k].rep/*representative*/);
@@ -900,15 +902,21 @@ void reproduce(std::vector <Species> *pop_ptr, const int MAX_POP, NOV *nov){
 					}
 				}
 				
-				if(child_placed == false){ //if no compatible species found for this child
+				if(child_placed == false){ //if no compatible species found for this child, NEW SPECIES
 					//std::cout << "adding new species..."<<std::endl;
 					//then make a new species with this child as its rep
-					Species new_spec = Species(child, old_innov_count); //create new species with child genome as first genome
+					string old_name = new_pop[i].get_name();
+					int subspecies_count = new_pop[i].get_num_subspecies();
+					Species new_spec = Species(child, old_innov_count, old_name, subspecies_count); //create new species with child genome as first genome
 					//above constructor handles setting the representative.
 					new_pop.push_back(new_spec);
 					//std::cout << "added new species."<<std::endl;
 					//std::cout << "new species created for child\n";
 					//std::cout << "Placed child " << child_count << " in NEW species " << std::endl;
+					//
+					//count this subspecies in the old species subspecies count
+					new_pop[i].add_subspecies();
+					
 				}
 			}
 			//this else block is TP only

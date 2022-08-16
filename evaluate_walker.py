@@ -17,29 +17,21 @@ import csv
 
 import sys
 
-#use this to turn off annoying warnings
-import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
 #set seed to get same results on same NNs and same inputs
 
 
 
 rank = sys.argv[1]
 
-NUM_INPUTS = 8
-NUM_OUTPUTS = 4
 
 ####CONTROLS AND HYPERPARAMETERS
 seeds = [13]
-max_steps = 300 #max steps before forcing end of evaluation
-set_max_steps = True #set max steps before evaluation ends
-multiple_seeds = False #average evaluate over several seeds
-do_set_seed = True #will turn off/on env.seed(seed)
-if multiple_seeds:
-	seeds = [101,98222]
+max_steps = 50 #should be 1200 for walker
+set_max_steps = True
 
-for dummy in range(1):
+
+for seed in seeds:
+    np.random.seed(seed)
 
     #1 create input nodes (the same for all genomes)
     input1 = tf.keras.Input(shape=(1,), name = 'INPUT_1')
@@ -50,6 +42,22 @@ for dummy in range(1):
     input6 = tf.keras.Input(shape=(1,), name = 'INPUT_6')
     input7 = tf.keras.Input(shape=(1,), name = 'INPUT_7')
     input8 = tf.keras.Input(shape=(1,), name = 'INPUT_8')
+    input9 = tf.keras.Input(shape=(1,), name = 'INPUT_9')
+    input10 = tf.keras.Input(shape=(1,), name = 'INPUT_10')
+    input11 = tf.keras.Input(shape=(1,), name = 'INPUT_11')
+    input12 = tf.keras.Input(shape=(1,), name = 'INPUT_12')
+    input13 = tf.keras.Input(shape=(1,), name = 'INPUT_13')
+    input14 = tf.keras.Input(shape=(1,), name = 'INPUT_14')
+    input15 = tf.keras.Input(shape=(1,), name = 'INPUT_15')
+    input16 = tf.keras.Input(shape=(1,), name = 'INPUT_16')
+    input17 = tf.keras.Input(shape=(1,), name = 'INPUT_17')
+    input18 = tf.keras.Input(shape=(1,), name = 'INPUT_18')
+    input19 = tf.keras.Input(shape=(1,), name = 'INPUT_19')
+    input20 = tf.keras.Input(shape=(1,), name = 'INPUT_20')
+    input21 = tf.keras.Input(shape=(1,), name = 'INPUT_21')
+    input22 = tf.keras.Input(shape=(1,), name = 'INPUT_22')
+    input23 = tf.keras.Input(shape=(1,), name = 'INPUT_23')
+    input24 = tf.keras.Input(shape=(1,), name = 'INPUT_24')
 
     
 
@@ -64,12 +72,30 @@ for dummy in range(1):
     node_dict[6] = input6
     node_dict[7] = input7
     node_dict[8] = input8
+    node_dict[9] = input9
+    node_dict[10] = input10
+    node_dict[11] = input11
+    node_dict[12] = input12
+    node_dict[13] = input13
+    node_dict[14] = input14
+    node_dict[15] = input15
+    node_dict[16] = input16
+    node_dict[17] = input17
+    node_dict[18] = input18
+    node_dict[19] = input19
+    node_dict[20] = input20
+    node_dict[21] = input21
+    node_dict[22] = input22
+    node_dict[23] = input23
+    node_dict[24] = input24
 
     #the weights of each node.   layer_number : weight_list[]
     weight_dict = {}
 
     #neccessary for setting weights in right order
-    layer_node_dict = {1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8}
+    layer_node_dict = {1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8,9:9,10:10,11:11,12:12,13:13,
+                            14:14,15:15,16:16,17:17,18:18,19:19,20:20,21:21,22:22,
+                            23:23,24:24}
 
     #merge the inputs  UNUSED
     #inputs = tf.keras.layers.Concatenate()([input1, input2, input3, input4])
@@ -78,8 +104,8 @@ for dummy in range(1):
     #for checking if we are constructing the output node since the
     #output layer must be created with different activation fxn
     #for binary output to AI GYM cart&pole
-    output_node_numbers = [9,10,11,12]
-    last_node_number = 12
+    output_node_numbers = [25,26,27,28]
+    last_node_number = 28
 
     #list of all genome's fitnesses
     fit = []
@@ -128,9 +154,25 @@ for dummy in range(1):
                     node_dict[6] = input6
                     node_dict[7] = input7
                     node_dict[8] = input8
+                    node_dict[9] = input9
+                    node_dict[10] = input10
+                    node_dict[11] = input11
+                    node_dict[12] = input12
+                    node_dict[13] = input13
+                    node_dict[14] = input14
+                    node_dict[15] = input15
+                    node_dict[16] = input16
+                    node_dict[17] = input17
+                    node_dict[18] = input18
+                    node_dict[19] = input19
+                    node_dict[20] = input20
+                    node_dict[21] = input21
+                    node_dict[22] = input22
+                    node_dict[23] = input23
+                    node_dict[24] = input24
                     #print("read in ", i, " ===CONSTRUCTING NN BEGIN====")
                     #while we have not constructed all the nodes
-                    layer_count = 8 #8 inputs established before loop
+                    layer_count = 24 #4 inputs established before loop
                     fully_constructed = False
                     output_layer = [0,0,0,0]
                     outputs_made = []
@@ -178,10 +220,10 @@ for dummy in range(1):
 ##                                    #create 4 concatenation layers
 ##                                    for z in range(len(output_node_numbers)):
                                     layer_inputs = tf.keras.layers.Concatenate()(input_node_list) #not needed
-                                    index_output = int(node_list[k][0]) - NUM_INPUTS-1 #tween 0 and 3 for output index
+                                    index_output = int(node_list[k][0]) - 25 #tween 0 and 3 for output index
                                     #create output node for classification
                                     output_layer[index_output] = tf.keras.layers.Dense(1,
-                                            name = str(int(node_list[k][0])), activation='sigmoid')(layer_inputs)
+                                            name = str(int(node_list[k][0])), activation='tanh')(layer_inputs)
                                     layer_name_list.append(str(int(node_list[k][0])))
                                     #if rank == "1":
                                     #    print("created output layer with name", str(int(node_list[k][0])))
@@ -247,7 +289,7 @@ for dummy in range(1):
                     #print("2: ", type(output_layer[1]))
                     #print("3: ", type(output_layer[2]))
                     #print("4: ", type(output_layer[3]))
-                    model = tf.keras.Model(inputs=[input1, input2, input3, input4,input5, input6, input7, input8],outputs=[output_layer[0],output_layer[1],output_layer[2],output_layer[3]])
+                    model = tf.keras.Model(inputs=[input1, input2, input3, input4,input5, input6, input7, input8, input9, input10, input11, input12, input13, input14, input15, input16, input17, input18, input19, input20, input21, input22, input23, input24],outputs=[output_layer[0],output_layer[1],output_layer[2],output_layer[3]])
 
 
 
@@ -291,66 +333,66 @@ for dummy in range(1):
 
 
     ###### AI GYM ######
-                    fitness_sum = 0
-                    for seed in seeds:
-                        #fitness of this genome
-                        fitness = 0
 
-			    #create environment for cart and pole
-	##                    env = gym.make('BipedalWalker-v3', render_mode='human',
-	##                                   new_step_api=True)
-			    #env = gym.make('BipedalWalker-v3', new_step_api=True)
-			    
-			    #env = gym.make('BipedalWalker-v3') #run without rendering
+                    #fitness of this genome
+                    fitness = 0
 
-                        env = gym.make('LunarLander-v2');
-                        #redefine observation if do_set_seed:
-                        if do_set_seed:
-                            env.seed(seed=seed)
+                    #create environment for cart and pole
+##                    env = gym.make('BipedalWalker-v3', render_mode='human',
+##                                   new_step_api=True)
+                    #env = gym.make('BipedalWalker-v3', new_step_api=True)
+                    
+                    #env = gym.make('BipedalWalker-v3') #run without rendering
 
-			    #change max episode length
-                        if set_max_steps:
-                            env._max_episode_steps = max_steps
+                    env = gym.make('BipedalWalker-v3');
+                    #redefine observation space
+	
+                    env.seed(seed=seed)
+
+                    #change max episode length
+                    if set_max_steps:
+                        env._max_episode_steps = max_steps
 
 
-			    #get initial state
-                        state = env.reset()
+                    #get initial state
+                    state = env.reset()
 
-                        terminated = False
-                        while(not terminated):
-                            #convert state to proper format for NN
-                            state_list = [0,0,0,0,0,0,0,0]
-                            for i in range(NUM_INPUTS):
-                                elm = np.array([state[i]]);
-                                state_list[i] = elm
-				
-                            #get action from our NN
-                            action = model.predict(state_list)
-                            #do data type converstions from keras model to gym
-                            action = list(action)
-                            true_action = action.index(max(action))
-				
-				#env.render() #neccesary in this version
-				#take action in the env, get reward and new state
-                            state, reward, terminated, info = env.step(true_action)
-                            fitness += reward
+                    #get the size of the action space
+                    action_size = env.action_space.shape[0]
+                    done = False
+                    terminated = False
+                    truncated = False
+                    while(not terminated):
+                        #convert state to proper format for NN
+                        state_list = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+                        for i in range(24):
+                            elm = np.array([state[i]]);
+                            state_list[i] = elm
+                        
+                        #get action from our NN
+                        action = model.predict(state_list)
 
-				
+                        #convert action back into form usable
+                        #(returns from model as list of 1-elm np arrays, need
+                        #a np array of size 4 instead
+                        true_action = np.zeros(4)
+                        for z in range(len( true_action)):  
+                            true_action[z] = float(action[z])
+                        
+                        #env.render() #neccesary in this version
+                        #take action in the env
+                        #state, reward, done, info= env.step(int(action[0][0]))
+                        state, reward, terminated, info = env.step(true_action)
+                        fitness += reward
 
-				#if we want to slow down the visuals
-				#time.sleep(0.001)
-                        env.close()
-			
-			#scale fitness between 0 and about 270
-                        #if fitness < -200:
-                        #    fitness = 0
-                        #else:
-                        #    fitness = fitness + 200
-                        fitness = fitness + 1000
-                        #print("fitness for seed ", seed, " is ", fitness)
-                        fitness_sum = fitness_sum + fitness
-                    fitness = fitness_sum/len(seeds) #get averate fitness of mulitple trials
-                    fit.append(fitness) #add min possible fitness to offset negatives
+                        
+
+                        #if we want to slow down the visuals
+                        #time.sleep(0.001)
+                    env.close()
+                
+                    
+                    fit.append(fitness+200)
 
             
                     node_list.clear();

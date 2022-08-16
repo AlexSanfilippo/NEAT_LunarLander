@@ -32,14 +32,15 @@ NUM_OUTPUTS = 4
 
 ####CONTROLS AND HYPERPARAMETERS
 seeds = [13]
-max_steps = 300 #max steps before forcing end of evaluation
-set_max_steps = True #set max steps before evaluation ends
-multiple_seeds = False #average evaluate over several seeds
-do_set_seed = True #will turn off/on env.seed(seed)
-if multiple_seeds:
-	seeds = [101,98222]
+max_steps = 100 #should be 1200 for walker
+set_max_steps = False
+mutiple_seeds = True
 
-for dummy in range(1):
+if multiple_seeds:
+	seeds = [1,2,3]
+
+for seed in seeds:
+    np.random.seed(seed)
 
     #1 create input nodes (the same for all genomes)
     input1 = tf.keras.Input(shape=(1,), name = 'INPUT_1')
@@ -291,65 +292,61 @@ for dummy in range(1):
 
 
     ###### AI GYM ######
-                    fitness_sum = 0
-                    for seed in seeds:
-                        #fitness of this genome
+
+                    #fitness of this genome
+                    fitness = 0
+
+                    #create environment for cart and pole
+##                    env = gym.make('BipedalWalker-v3', render_mode='human',
+##                                   new_step_api=True)
+                    #env = gym.make('BipedalWalker-v3', new_step_api=True)
+                    
+                    #env = gym.make('BipedalWalker-v3') #run without rendering
+
+                    env = gym.make('LunarLander-v2');
+                    #redefine observation space
+	
+                    env.seed(seed=seed)
+
+                    #change max episode length
+                    if set_max_steps:
+                        env._max_episode_steps = max_steps
+
+
+                    #get initial state
+                    state = env.reset()
+
+                    terminated = False
+                    while(not terminated):
+                        #convert state to proper format for NN
+                        state_list = [0,0,0,0,0,0,0,0]
+                        for i in range(NUM_INPUTS):
+                            elm = np.array([state[i]]);
+                            state_list[i] = elm
+                        
+                        #get action from our NN
+                        action = model.predict(state_list)
+                        #do data type converstions from keras model to gym
+                        action = list(action)
+                        true_action = action.index(max(action))
+                        
+                        #env.render() #neccesary in this version
+                        #take action in the env, get reward and new state
+                        state, reward, terminated, info = env.step(true_action)
+                        fitness += reward
+
+                        
+
+                        #if we want to slow down the visuals
+                        #time.sleep(0.001)
+                    env.close()
+                
+                    #scale fitness between 0 and about 270
+                    if fitness < -200:
                         fitness = 0
+                    else:
+                        fitness = fitness + 200
 
-			    #create environment for cart and pole
-	##                    env = gym.make('BipedalWalker-v3', render_mode='human',
-	##                                   new_step_api=True)
-			    #env = gym.make('BipedalWalker-v3', new_step_api=True)
-			    
-			    #env = gym.make('BipedalWalker-v3') #run without rendering
-
-                        env = gym.make('LunarLander-v2');
-                        #redefine observation if do_set_seed:
-                        if do_set_seed:
-                            env.seed(seed=seed)
-
-			    #change max episode length
-                        if set_max_steps:
-                            env._max_episode_steps = max_steps
-
-
-			    #get initial state
-                        state = env.reset()
-
-                        terminated = False
-                        while(not terminated):
-                            #convert state to proper format for NN
-                            state_list = [0,0,0,0,0,0,0,0]
-                            for i in range(NUM_INPUTS):
-                                elm = np.array([state[i]]);
-                                state_list[i] = elm
-				
-                            #get action from our NN
-                            action = model.predict(state_list)
-                            #do data type converstions from keras model to gym
-                            action = list(action)
-                            true_action = action.index(max(action))
-				
-				#env.render() #neccesary in this version
-				#take action in the env, get reward and new state
-                            state, reward, terminated, info = env.step(true_action)
-                            fitness += reward
-
-				
-
-				#if we want to slow down the visuals
-				#time.sleep(0.001)
-                        env.close()
-			
-			#scale fitness between 0 and about 270
-                        #if fitness < -200:
-                        #    fitness = 0
-                        #else:
-                        #    fitness = fitness + 200
-                        fitness = fitness + 1000
-                        #print("fitness for seed ", seed, " is ", fitness)
-                        fitness_sum = fitness_sum + fitness
-                    fitness = fitness_sum/len(seeds) #get averate fitness of mulitple trials
                     fit.append(fitness) #add min possible fitness to offset negatives
 
             

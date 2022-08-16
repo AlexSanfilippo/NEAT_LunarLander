@@ -41,14 +41,14 @@ class Genome{
  		* */
 		Genome(){
 			/*these 96 genes form the minimal network for Walker*/
-			Gene A(1, 25, 1, true);
+			Gene A(1, 9, 1, true);
 			A.setInnov(1);
 			A.setInnovCount(1);
 			
 			std::vector<Gene> temp_gene_vec = {A};
-			for(int j = 25; j <= 28; j++){
-				for(int i = 1; i <= 24; i++){
-					if(!(j==25 && i==1)){	
+			for(int j = 9; j <= 12; j++){
+				for(int i = 1; i <= 8; i++){
+					if(!(j==9 && i==1)){ //if not the first gene (already made before)	
 						Gene G(i, j, 1, true);
 						temp_gene_vec.push_back(G);
 					}
@@ -329,6 +329,7 @@ class Genome{
 				bool enabled = gene_vec[i].getEnabled();
 				
 				if(enabled){ //only enabled genes are built on the NN
+					//std::cout << "NODE INPUTS COUNT\n";
 					node_inputs[output][0] += 1; //increment the input-node count
 					node_inputs[output].push_back(input);  //add this input-node to the list
 					node_weights[output].push_back(w); //add weight to the weight list
@@ -439,6 +440,8 @@ class Genome{
 						double weight = gene_vec[cur_index].getWeight();
 						//node_count += 1; //increment count of nodes defined by Genome
 						node_count = nov->size();
+						//std::cout << "created new node #" << node_count << " in mutate()\n";
+						//std::cout << "in Genome.h nov->size() returned, " << node_count << "was expecting " << 29 << std::endl;
 						Gene gene_a(in, node_count , 1, true); 
 						//std::cout << "ADDNODE mutation added cnx A tween " << in <<"-->"<<node_count<<"\n";
 						Gene gene_b(node_count, out, weight, true );
@@ -510,7 +513,10 @@ class Genome{
 				//randomly decide whether to use gene A's input
 				//or output as the new cnxn's input. same
 				//logic for output from gene "B"
-				while(rand_in == rand_out || (rand_in <= NUM_INPUT_NODES && rand_out <= NUM_INPUT_NODES) ){
+				int OUTPUT_HIGH = NUM_INPUT_NODES + NUM_OUTPUT_NODES; 
+				while(rand_in == rand_out || (rand_in <= NUM_INPUT_NODES && rand_out <= NUM_INPUT_NODES) || 
+					((rand_in > NUM_INPUT_NODES/*12*/ && rand_in <= OUTPUT_HIGH/*16*/ )&&
+					(rand_out > NUM_INPUT_NODES/*12*/ && rand_out <= OUTPUT_HIGH /*16*/))){
 					if(urd(gen) < 0.5){
 						rand_in = gene_vec[cur_indexA].getIn();
 					}	
@@ -578,14 +584,15 @@ class Genome{
 		std::vector <std::vector <double>> node_inputs; //all nodes and thier input nodes
 		std::vector <std::vector<double>> node_weights; //all nodes and all thier weights
 		
-		const int NUM_INPUT_NODES = 24; //number of input nodes
-
+		const int NUM_INPUT_NODES = 8; //number of input nodes
+		const int NUM_OUTPUT_NODES = 4;
 		//std::vector <Gene> gene_vec; //holds the genes in a std vector 
 	//	double fitness; //how fit this genome is on the test
 	//	double adjusted; //adjusted fitness score	
 		const int MUT_MAGN = 3;  /*Max magnitude of set weight random values, +/-*/
 
-		int node_count = 28; //be sure to set according to initial architecture 
+		//ANTIQUATED? unsure if this int supports anything important
+		int node_count = 12; //be sure to set according to initial architecture 
 		
 		/*MUTATION PROBABILITY THRESHOLDS*/
 		double P_weight = 0.8; //chance this genome will mutate its weight(s)
