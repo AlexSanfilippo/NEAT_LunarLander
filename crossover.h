@@ -102,14 +102,51 @@ void calcOffspring(std::vector <Species> *pop_ptr, const int MAX_POP){
 	//int vacancy = MAX_POP - pop_size;
 	double sumOfSpeciesAdjusted = 0;
 	std::vector <double> sumadj_vec;
-	for(long unsigned int i = 0; i < pop.size(); i++){ //for each species
-		double val = pop[i].calcSumOfAdjusted();
-		sumadj_vec.push_back(val);
-		//if( pop[i].size() > 1){ //don't add 1 member species into the eqn
-		sumOfSpeciesAdjusted += val;
-		//}
-		//pop.genome_vec[i].setOffpsring( );
-	}	
+
+
+	//Find the worst adjusted fitness for a species
+	double min_fitness = 10000;//might need to change for different RL task
+	if(pop.size() > 1){ //if more than 1 species		
+		cout << "triggered NEW offspring proportioning logic\n";
+		for(long unsigned int i = 0; i < pop.size(); i++){ 		
+			double val = pop[i].calcSumOfAdjusted();	
+			sumadj_vec.push_back(val);
+
+			if(val < min_fitness && val != 0){
+				min_fitness = val;
+			}
+
+		}
+		//don't want least fit species to get ZERO children
+		//especially if only 2 species.  coeff is 0 to 1, excl.
+		//if coefficent too big, high punishement for low performance.
+		//if too low, no change from original.  try .8 and adjust
+		min_fitness = min_fitness*0.9; //not sure what best coefficient should be
+		cout << "min_fitness is " << min_fitness << endl;			
+		for(long unsigned int i = 0; i < pop.size(); i++){ //for each species
+			//double val = pop[i].calcSumOfAdjusted() - min_fitness;
+			//sumadj_vec.push_back(val);
+			if(sumadj_vec[i] != 0){
+				sumadj_vec[i] = sumadj_vec[i] - min_fitness;
+				sumOfSpeciesAdjusted += sumadj_vec[i];
+			}
+			//}
+			//pop.genome_vec[i].setOffpsring( );
+		}
+		
+		cout << "min_fitess is " << min_fitness << " sumOfSpeciesAdjusted is " << sumOfSpeciesAdjusted << endl;
+	}
+	else{
+		for(long unsigned int i = 0; i < pop.size(); i++){ //for each species
+			double val = pop[i].calcSumOfAdjusted();
+			sumadj_vec.push_back(val);
+			//if( pop[i].size() > 1){ //don't add 1 member species into the eqn
+			sumOfSpeciesAdjusted += val;
+			//}
+			//pop.genome_vec[i].setOffpsring( );
+		}
+	}
+	
 	double pop_avg_fitness = calcAverageFitness(pop_ptr);
 	for(long unsigned int i = 0; i < pop.size(); i++){ //for each species again
 		/*
@@ -131,10 +168,11 @@ void calcOffspring(std::vector <Species> *pop_ptr, const int MAX_POP){
 			//std::cout << "pop size of 1 hit in [calcOffspring]\n";
 			if(pop[i].getFitness() < pop_avg_fitness){
 				pop[i].add_death_clock(); //add 1 to death clock
-				std::cout << pop[i].get_name() << " tic tic tic...\n";
+				std::cout << pop[i].get_name() << ": " << pop[i].get_death_clock() <<" tic tic tic...\n";
 				if(pop[i].get_death_clock() == MIDNIGHT){
 					pop[i].setOffspring(0);
 					std::cout << "======DEATHCLOCK STRIKES MIDNIGHT======\n";
+					pop[i].kill_me = true;
 				}
 				else{
 					pop[i].setOffspring( ceil( (sumadj_vec[i]/sumOfSpeciesAdjusted) * double(MAX_POP) ) );
@@ -154,7 +192,7 @@ void calcOffspring(std::vector <Species> *pop_ptr, const int MAX_POP){
 		else{ //ie, if species's size is 0
 			pop[i].setOffspring(0);
 		}
-		std::cout << "sumadj of this species = " << sumadj_vec[i] << " sumOfSpeciesAdjusted = " << sumOfSpeciesAdjusted << "\n";
+		//std::cout << "sumadj of this species = " << sumadj_vec[i] << " sumOfSpeciesAdjusted = " << sumOfSpeciesAdjusted << "\n";
 		std::cout << "offspring = " << pop[i].getOffspring() << " for species "<< pop[i].get_name() <<std::endl;
 	}	
 	//sleep(4);

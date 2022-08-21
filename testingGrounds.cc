@@ -43,7 +43,7 @@
 //put this function in crossover.h later
 void crossover(Genome g1, Genome g2, Genome * child);
 void matchMaker(Species s, int* parents, double avg_fitness);
-void reproduce(std::vector <Species> *pop_ptr, const int MAX_POP, NOV *nov);
+void reproduce(std::vector <Species> *pop_ptr, const int MAX_POP, NOV *nov, const int DIST_THRESHOLD);
 void  writeToFileRecv(ofstream *fp);
 
 
@@ -55,15 +55,17 @@ int main(int argc, char **argv){
 	/*==========  Version 1.1 of Main Loop  =========*/
 	//created 25-07-2022
 	//updated 10-08-2022
-
+	
 	bool do_fitness_stop = false; //whether stop if single NN performs
-	int fitness_stop_threshold = 1100;		
+	int fitness_stop_threshold = 1200;		
 	const int INPUT_NODES = 8;
 	const int OUTPUT_NODES = 4;
 	/*SIMULATION HYPERPARAMETERS*/
-	const int POP_SIZE  = 75; //number of genomes in the whole population
+	const int POP_SIZE  = 100; //number of genomes in the whole population
 	const int NUM_MUT = 1; //number of calls of mutate() on a genome per Generation
-	const int NUM_GEN = 20; //number of generations	
+	const int NUM_GEN = 80; //number of generations	
+	const int DIST_THRESHOLD = 3;
+
 	int gen_count = 0;
 	NOV nov(INPUT_NODES,OUTPUT_NODES); //create Nodal Order Vector object
 	//nov.summary();// TP	
@@ -187,7 +189,7 @@ int main(int argc, char **argv){
 	
 	//Mutate all the genomes in the species & calc fitness
 	for(int g = 0; g < NUM_GEN; g++){ //each gen
-
+		std::cout << "Starting Gen " << g << std::endl;
 		/*[Parallel]*/
 		/* //OLD
 		//if the number of genomes changes, change the last procs genomes_per_proc
@@ -368,7 +370,7 @@ int main(int argc, char **argv){
 		}
 		
 		fp.close();
-			
+		cout << "[Main] send,recv, and wrote genomes to files\n";	
 		/*Call python script to evaluated all genome's fitnesses*/
 		auto stop_gen_a = std::chrono::high_resolution_clock::now(); //stop timing before eval
 		auto start = std::chrono::high_resolution_clock::now();
@@ -491,8 +493,8 @@ int main(int argc, char **argv){
 			
 			ngenomes = calcTotalPop(&pop);// record pre-reproduce pop size for rebalancing in Next Generation
 			/*reproduce (create new population from fittest of old pop)*/
-			reproduce(&pop, POP_SIZE, &nov);
-			//cout << "[POST-CROSSOVER]Number of Genomes: " << calcTotalPop(&pop) << std::endl;
+			reproduce(&pop, POP_SIZE, &nov, DIST_THRESHOLD);
+			cout << "[Main loop] after reproduce... "<< std::endl;
 			//std::cout <<"[MainLoop] called reproduce\n";
 			gen_count++;
 			auto stop_gen_b = std::chrono::high_resolution_clock::now(); //stop timing before eval
@@ -777,6 +779,7 @@ void matchMaker(Species s, int* parents, double avg_fitness){
                 parents[1] = -1;
 	}
 	//SEXUAL REPRODUCTION
+	//for species with 1 genome but that is fit
 	else if(s.genome_vec.size() == 1 && s.getFitness() > avg_fitness){
 		//std::cout << "performing self-fertilization reproduction";
 		parents[0] = 0;
@@ -796,9 +799,9 @@ void matchMaker(Species s, int* parents, double avg_fitness){
  * @brief calls all the functions related to reproduction for a given population 
  *
  * */
-void reproduce(std::vector <Species> *pop_ptr, const int MAX_POP, NOV *nov){
+void reproduce(std::vector <Species> *pop_ptr, const int MAX_POP, NOV *nov, const int DIST_THRESHOLD){
 	
-	//std::cout << "in reproduce()...\n";	
+	//std::cout << "[reproduce] start reproduce()...\n";	
 
 	Gene ic_gene2 = Gene(0,0,0,true);
 	int old_innov_count = ic_gene2.getInnovCount();
@@ -812,13 +815,14 @@ void reproduce(std::vector <Species> *pop_ptr, const int MAX_POP, NOV *nov){
 
 
 	/*HYPER PARAMETERS*/ //add these to a struct in a world_setting.h file later on
-	int dist_threshold = 1; //paper says 3
+	int dist_threshold = DIST_THRESHOLD; //paper says 3
 	
 
 
 	//get size of population
 	int pop_size = pop.size();
 	calcOffspring(&pop, MAX_POP); //works for all species already, no loop req.
+	//cout << "[reproduce] after calcOffpspring\n";
 	//for each Species-choose a representative genome
 	for(int i = 0; i < pop_size; i++){
 		if(pop[i].size() > 2){ //why was this ever 4? changed to 2	
@@ -826,19 +830,20 @@ void reproduce(std::vector <Species> *pop_ptr, const int MAX_POP, NOV *nov){
 			pop[i].chooseRep(); //choose a random new repr genome
 		}	
 	}
-	
+	//cout << "[reproduce] after cull and chooserep loop\n"; 
 	
 	//NEW POPULATION-for new generation	
 	std::vector <Species> new_pop;
 	Species temp_spec = Species(old_innov_count);
 	int sec_index = 0;
 	for(long unsigned int i = 0; i < pop.size(); i++){ //for each species in old pop
-		if(!(pop[i].genome_vec.empty())){ //if this old species had genomes
+		if(!(pop[i].genome_vec.empty()) && pop[i].kill_me == false){ //if this old species had genomes
 			Species empty_spec = Species(old_innov_count);
 			new_pop.push_back(empty_spec); //add empty species to new pop
 			new_pop[sec_index].rep = pop[i].rep; //deep copy?
 			new_pop[sec_index].set_name( pop[i].get_name());
 			new_pop[sec_index].set_num_subspecies(pop[i].get_num_subspecies());
+			new_pop[sec_index].set_death_clock(pop[i].get_death_clock()); //copy over death clock
 			sec_index++;
 		}
 		else{
@@ -846,12 +851,21 @@ void reproduce(std::vector <Species> *pop_ptr, const int MAX_POP, NOV *nov){
 			//sleep(2);
 		}
 	}
-	//std::cout << "finished adding old species to new_pop, skipping empty species\n";
+	//std::cout << "[reproduce] finished adding old species to new_pop, skipping empty species\n";
 
 	int child_count = 0;
 
-	//now make children for each species and speciate the children
-	for(int i = 0; i < pop_size; i++){ //for each species
+	//now make children for eiach species and speciate the children
+	int new_pop_i = -1; //translate old pop index into new pop index
+	for(int i = 0; i < pop_size; i++){ //for each species in old pop?
+
+
+		//FIX TO NEW_POP AND OLD_POP HAVING non-identical indices
+		if(pop[i].getOffspring() > 0){// if no children in this species in the old pop
+			new_pop_i += 1; //move to next index in new pop
+		}
+
+
 		//for each offspring to make...
 		for(int j = 0; j < pop[i].getOffspring(); j++){
 			//matchMaker() to get two parents indices
@@ -886,7 +900,7 @@ void reproduce(std::vector <Species> *pop_ptr, const int MAX_POP, NOV *nov){
 					//std::cout <<"\ntriggered asexual reproduction in species " << i << "\n";
 				}
 
-				//std::cout << "[reproduce()] after crossover()\n";
+				//std::cout << "[reproduce()] after crossover() in " << pop[i].get_name() <<std::endl;
 				int pop_size_dyn = new_pop.size(); //updates as new species are created;
 				bool child_placed = false;
 				//SPECIATE THE CHILD
@@ -901,32 +915,40 @@ void reproduce(std::vector <Species> *pop_ptr, const int MAX_POP, NOV *nov){
 						k = pop_size_dyn; //stop adding the child to species
 					}
 				}
-				
+				//std::cout << "[reproduce()] after look at all repr. genomes()\n";	
 				if(child_placed == false){ //if no compatible species found for this child, NEW SPECIES
-					//std::cout << "adding new species..."<<std::endl;
+					//std::cout << "adding new species..." << std::endl;
 					//then make a new species with this child as its rep
-					string old_name = new_pop[i].get_name();
-					int subspecies_count = new_pop[i].get_num_subspecies();
+					string old_name = new_pop[new_pop_i].get_name();
+					//std::cout << "[reproduce]after copy old_name" << std::endl;
+					int subspecies_count = new_pop[new_pop_i].get_num_subspecies();
+					//std::cout << "[reproduce] after get_num_subspecies()" << std::endl;
 					Species new_spec = Species(child, old_innov_count, old_name, subspecies_count); //create new species with child genome as first genome
+					//std::cout << "[reproduce] after species constructor" << std::endl;
 					//above constructor handles setting the representative.
 					new_pop.push_back(new_spec);
+					//std::cout << "[reproduce] after push_back new species to new_pop" << std::endl;
 					//std::cout << "added new species."<<std::endl;
 					//std::cout << "new species created for child\n";
 					//std::cout << "Placed child " << child_count << " in NEW species " << std::endl;
 					//
 					//count this subspecies in the old species subspecies count
-					new_pop[i].add_subspecies();
+					new_pop[new_pop_i].add_subspecies();
+					//std::cout << "[reproduce] after add_subspecies()" << std::endl;
 					
 				}
+				//std::cout << "[reproduce()] after create new species for a child genome\n";
 			}
-			//this else block is TP only
+			//Making sure that we are catching species that should not reproduce
 			else {
 				std::cout << "caught -1 parents at "<< i << "/" << pop_size << std::endl;
 			}
+				
+			//std::cout << "[reproduce()] after place child in a species\n";
 		}
 	}
-	pop = new_pop; //TRY THIS 
-	//std::cout << "reached end of reproduce()\n";
+	pop = new_pop; //TRY THIS -works
+	//std::cout << "[reproduce] reached end\n";
 }
 
 

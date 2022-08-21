@@ -41,7 +41,13 @@ class Species {
 			//std::cout << "created new subspecies with name" << name<< std::endl;
 		}
 
+		//public member variables
 		std::vector <Genome> genome_vec; //vector of genomes in this species
+		
+		//if true, species is not copied over to next gen.  part of
+		//procedure for reducing destructive speciation
+		bool kill_me = false;
+		
 		
 		/**
  		* @brief returns this species name

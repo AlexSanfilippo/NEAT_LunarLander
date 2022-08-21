@@ -32,8 +32,8 @@ NUM_OUTPUTS = 4
 
 ####CONTROLS AND HYPERPARAMETERS
 seeds = [13]
-max_steps = 300 #max steps before forcing end of evaluation
-set_max_steps = True #set max steps before evaluation ends
+max_steps = 1000 #max steps before forcing end of evaluation
+set_max_steps = False #set max steps before evaluation ends
 multiple_seeds = False #average evaluate over several seeds
 do_set_seed = True #will turn off/on env.seed(seed)
 if multiple_seeds:
