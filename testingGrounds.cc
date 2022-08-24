@@ -64,7 +64,7 @@ int main(int argc, char **argv){
 	const int POP_SIZE  = 100; //number of genomes in the whole population
 	const int NUM_MUT = 1; //number of calls of mutate() on a genome per Generation
 	const int NUM_GEN = 80; //number of generations	
-	const int DIST_THRESHOLD = 3;
+	const int DIST_THRESHOLD = 32;
 
 	int gen_count = 0;
 	NOV nov(INPUT_NODES,OUTPUT_NODES); //create Nodal Order Vector object

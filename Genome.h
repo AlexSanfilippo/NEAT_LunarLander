@@ -595,13 +595,13 @@ class Genome{
 		int node_count = 12; //be sure to set according to initial architecture 
 		
 		//mutation intensity modifier: MIM for short
-		double mim = 1; //between 1 an 5, integers
+		double mim = 0; //between 1 an 5, integers. 0 for only weight mutation
 		double perturb_min = 0.1; //min PERCENT change in weight value
-		double perturb_max = 0.5; //max PERCENT change in weight value
+		double perturb_max = 0.3; //max PERCENT change in weight value
 		double perturb_floor = 0.25; //min absolute change in weight value
 		/*MUTATION PROBABILITY THRESHOLDS*/
-		double P_weight = 0.8; //chance this genome will mutate its weight(s)
-		double P_perturb = 0.9; //chance to change a genomes weight by a multiple 
+		double P_weight = 0.8; //chance this gene will have its weight mutated
+		double P_perturb = 0.9; //chance to change a genomes weight by a multiple of the old weight 
 		double P_newweight = 0.1; //chance to replace weight with new random weight
 		double P_newnode = 0.03*mim; //add new gene for new node, splitting one into two //should be 0.03
 		double P_newlink = 0.05*mim; //add new connection (link) between 2 existing nodes (new gene) 0.05
